@@ -1,4 +1,4 @@
-import type { ClassifiedJob, Company } from "@job-radar/shared";
+import { DEFAULT_FILTER, hiddenReason, type ClassifiedJob, type Company } from "@job-radar/shared";
 
 export interface CompanyRunResult {
   company: Company;
@@ -79,10 +79,13 @@ export function renderMarkdown(s: RunSummary, companyNames: Map<string, string>)
 
   const hidden = s.allNew.length - s.matches.length;
   if (hidden > 0) {
-    lines.push(`<details><summary>${hidden} other new jobs hidden by the filter (senior, non-US, or support roles)</summary>`);
+    lines.push(`<details><summary>${hidden} other new jobs hidden by the filter</summary>`);
     lines.push("");
     for (const j of s.allNew.filter((x) => !s.matches.includes(x))) {
-      lines.push(`- ${esc(companyNames.get(j.companyId) ?? j.companyId)}: [${esc(j.title)}](${j.url}) (${j.roleFamily}, ${j.seniority}, ${j.isUS === false ? "non-US" : j.locations.join("; ") || "?"})`);
+      const where = j.locations.join("; ") || (j.remote ? "Remote" : "?");
+      lines.push(
+        `- **${hiddenReason(j, DEFAULT_FILTER) ?? "hidden"}**: ${esc(companyNames.get(j.companyId) ?? j.companyId)}, [${esc(j.title)}](${j.url}) (${esc(where)}${j.country ? `, ${esc(j.country)}` : ""})`,
+      );
     }
     lines.push("");
     lines.push("</details>");

@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  enrichWorkdayJob,
   fetchWorkday,
   parseAshby,
+  parseWorkdayDetail,
   parseGreenhouse,
   parseLever,
   workdayKeyFromUrl,
@@ -125,5 +127,35 @@ describe("workday", () => {
     });
     const director = res.jobs.find((j) => j.title.startsWith("Director"));
     expect(director!.locations).toEqual([]);
+  });
+});
+
+describe("country fields", () => {
+  it("lever passes through `country`", () => {
+    const jobs = parseLever(co("lever", "examplelever"), fx("lever.json"));
+    expect(jobs[0]!.country).toBe("US");
+  });
+
+  it("workday detail gives description, every location and the country", () => {
+    const d = parseWorkdayDetail(fx("workday-detail.json"));
+    expect(d.country).toBe("United States of America");
+    expect(d.locations).toEqual(["Pearl River, NY", "Andover, MA"]);
+    expect(d.descriptionText).toContain("Bachelor's degree in Biology");
+  });
+
+  it("enrichWorkdayJob fills in a vague list entry", async () => {
+    const calls: string[] = [];
+    const fetch: FetchFn = async (url) => {
+      calls.push(url);
+      return { status: 200, json: async () => fx("workday-detail.json") };
+    };
+    const job = {
+      companyId: "example", externalId: "/job/X/Associate-Scientist_4999999", title: "Associate Scientist",
+      url: "u", locations: [], remote: false, postedAt: null, postedText: "Posted Today",
+    };
+    const out = await enrichWorkdayJob({ fetch, userAgent: "t" }, co("workday", "pfizer|wd1|PfizerCareers", "pharma"), job);
+    expect(calls[0]).toBe("https://pfizer.wd1.myworkdayjobs.com/wday/cxs/pfizer/PfizerCareers/job/X/Associate-Scientist_4999999");
+    expect(out.locations).toEqual(["Pearl River, NY", "Andover, MA"]);
+    expect(out.country).toBe("United States of America");
   });
 });

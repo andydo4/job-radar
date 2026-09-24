@@ -16,6 +16,7 @@ import { join } from "node:path";
 import {
   HttpError,
   WORKDAY_PAGE_SIZE,
+  parseWorkdayDetail,
   parseWorkdayKey,
   requestJson,
   workdayHost,
@@ -109,6 +110,12 @@ async function testOne(ctx: HttpContext, label: string, k: WorkdayKey): Promise<
         len > 0
           ? `- ✅ Job detail endpoint works (description ${len} chars${detail.jobPostingInfo?.startDate ? `, startDate ${detail.jobPostingInfo.startDate}` : ""}).`
           : "- ⚠️ Job detail endpoint returned no description.",
+      );
+      const d = parseWorkdayDetail(detail);
+      lines.push(
+        d.country
+          ? `- ✅ Detail gives the country (\`${d.country}\`) and locations (${d.locations.join("; ") || "none"}), which the US-only filter uses.`
+          : "- ⚠️ Detail has no country field. The US-only filter will rely on location text for this company.",
       );
     }
   } catch (err) {

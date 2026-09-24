@@ -69,6 +69,7 @@ export function fixturesFetch(fixturesDir: string, mutate?: (file: string, data:
     if (host === "boards-api.greenhouse.io") data = load("greenhouse.json");
     else if (host === "api.lever.co") data = load("lever.json");
     else if (host === "api.ashbyhq.com") data = load("ashby.json");
+    else if (host.endsWith(".myworkdayjobs.com") && (init?.method ?? "GET") === "GET") data = load("workday-detail.json");
     else if (host.endsWith(".myworkdayjobs.com")) {
       const offset = JSON.parse(init?.body ?? "{}").offset ?? 0;
       const page = offset / 20;

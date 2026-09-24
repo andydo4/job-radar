@@ -130,3 +130,33 @@ describe("csv", () => {
     ]);
   });
 });
+
+describe("Workday new jobs are checked on their detail page (US-only)", () => {
+  it("looks up the country of a new Workday job and hides it if it's outside the US", async () => {
+    const state = emptyState();
+    const wd = [FIXTURE_COMPANIES[3]!];
+    await runPoll({ companies: wd, state, dryRun: true, fetch: fixturesFetch(FIXTURES), now: clock("2026-09-20T12:00:00Z") });
+
+    const newPosting = (country: string) => (file: string, data: any) => {
+      if (file === "workday-page0.json") {
+        data.jobPostings.unshift({
+          title: "Representante de salud",
+          externalPath: "/job/Chihuahua/Representante-de-salud_5000001",
+          locationsText: "2 Locations",
+          postedOn: "Posted Today",
+        });
+      }
+      if (file === "workday-detail.json") {
+        data.jobPostingInfo.country = { descriptor: country };
+        data.jobPostingInfo.location = "Chihuahua";
+        data.jobPostingInfo.additionalLocations = ["Toluca"];
+      }
+      return data;
+    };
+    const r = await runPoll({ companies: wd, state, dryRun: true, fetch: fixturesFetch(FIXTURES, newPosting("Mexico")), now: clock("2026-09-20T12:10:00Z") });
+    expect(r.allNew).toHaveLength(1);
+    expect(r.allNew[0]).toMatchObject({ isUS: false, locations: ["Chihuahua", "Toluca"], country: "Mexico" });
+    expect(r.matches).toHaveLength(0);
+    expect(r.results[0]!.requests).toBe(2 + 1); // 2 list pages (board ends on page 2) + 1 detail lookup
+  });
+});

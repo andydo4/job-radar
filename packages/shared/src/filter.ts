@@ -7,12 +7,12 @@ import type { ClassifiedJob, RoleFamily, Seniority } from "./types.ts";
 export interface JobFilter {
   roleFamilies: RoleFamily[] | "all";
   seniorities: Seniority[];
-  /** Include jobs whose location we couldn't determine (e.g. Workday "3 Locations"). */
+  /** Include jobs whose location we couldn't determine (e.g. a bare "Remote" with no country). */
   includeUnknownLocation: boolean;
   excludeKeywords: string[];
 }
 
-/** Friend's starting profile: every biotech family + consulting + VC, entry level, anywhere in the US or remote. */
+/** Friend's starting profile: every biotech family + consulting + VC, entry level, US only (including US remote). */
 export const DEFAULT_FILTER: JobFilter = {
   roleFamilies: [
     "research",
@@ -27,18 +27,24 @@ export const DEFAULT_FILTER: JobFilter = {
     "vc",
   ],
   seniorities: ["intern", "entry", "unspecified"],
-  includeUnknownLocation: true,
+  includeUnknownLocation: false,
   excludeKeywords: [],
 };
 
-export function matchesFilter(job: ClassifiedJob, f: JobFilter): boolean {
-  if (job.isUS === false) return false;
-  if (job.isUS === null && !f.includeUnknownLocation) return false;
-  if (f.roleFamilies !== "all" && !f.roleFamilies.includes(job.roleFamily)) return false;
-  if (!f.seniorities.includes(job.seniority)) return false;
+/** Why a job doesn't match the filter, or null if it does. Shown in the report so nothing is hidden silently. */
+export function hiddenReason(job: ClassifiedJob, f: JobFilter): string | null {
+  if (job.isUS === false) return "outside US";
+  if (job.isUS === null && !f.includeUnknownLocation) return "location unknown";
+  if (f.roleFamilies !== "all" && !f.roleFamilies.includes(job.roleFamily)) return `${job.roleFamily} role`;
+  if (!f.seniorities.includes(job.seniority)) return `${job.seniority} level`;
   const title = job.title.toLowerCase();
-  if (f.excludeKeywords.some((k) => title.includes(k.toLowerCase()))) return false;
-  return true;
+  const kw = f.excludeKeywords.find((k) => title.includes(k.toLowerCase()));
+  if (kw) return `excluded keyword "${kw}"`;
+  return null;
+}
+
+export function matchesFilter(job: ClassifiedJob, f: JobFilter): boolean {
+  return hiddenReason(job, f) === null;
 }
 
 /** Sort: Boston/NYC first, then other tiers, then newest. */

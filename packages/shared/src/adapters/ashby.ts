@@ -15,6 +15,7 @@ interface AshbyJob {
   jobUrl: string;
   department?: string;
   descriptionPlain?: string;
+  address?: { postalAddress?: { addressCountry?: string } };
 }
 
 export function ashbyUrl(board: string): string {
@@ -38,6 +39,7 @@ export function parseAshby(company: Company, data: unknown): NormalizedJob[] {
         postedAt: j.publishedAt ?? null,
         department: j.department ?? undefined,
         descriptionText: j.descriptionPlain ?? undefined,
+        country: j.address?.postalAddress?.addressCountry || undefined,
       };
     });
 }

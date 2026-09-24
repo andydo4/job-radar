@@ -113,7 +113,7 @@ const TIER1_CITIES =
   /\b(boston|cambridge|somerville|waltham|lexington|watertown|woburn|bedford|burlington|framingham|new york|nyc|manhattan|brooklyn|jersey city|princeton|rahway|summit|new brunswick|kenilworth|lawrenceville|bridgewater|morristown|parsippany)\b/i;
 
 const NON_US =
-  /\b(canada|toronto|montreal|vancouver|ontario|quebec|united kingdom|\buk\b|england|london|oxford|scotland|ireland|dublin|germany|berlin|munich|france|paris|switzerland|basel|zurich|geneva|netherlands|amsterdam|leiden|belgium|brussels|denmark|copenhagen|sweden|stockholm|norway|finland|spain|madrid|barcelona|italy|milan|poland|warsaw|austria|vienna|israel|tel aviv|india|bangalore|bengaluru|hyderabad|mumbai|pune|china|shanghai|beijing|suzhou|hong kong|japan|tokyo|korea|seoul|singapore|taiwan|australia|sydney|melbourne|new zealand|mexico|brazil|argentina|colombia|south africa|emea|apac|latam|europe)\b/i;
+  /\b(canada|toronto|montreal|vancouver|ontario|quebec|united kingdom|\buk\b|england|london|oxford|scotland|ireland|dublin|germany|berlin|munich|france|paris|switzerland|basel|zurich|geneva|netherlands|amsterdam|leiden|belgium|brussels|denmark|copenhagen|sweden|stockholm|norway|finland|spain|madrid|barcelona|italy|milan|poland|warsaw|austria|vienna|israel|tel aviv|india|bangalore|bengaluru|hyderabad|mumbai|pune|china|shanghai|beijing|suzhou|hong kong|japan|tokyo|korea|seoul|singapore|taiwan|australia|sydney|melbourne|new zealand|mexico|méxico|chihuahua|guadalajara|monterrey|tijuana|brazil|brasil|são paulo|sao paulo|argentina|buenos aires|colombia|bogot[aá]|chile|santiago|peru|lima|costa rica|south africa|egypt|saudi|dubai|uae|turkey|istanbul|greece|portugal|lisbon|czech|prague|hungary|budapest|romania|bucharest|emea|apac|latam|europe)\b/i;
 
 /** Returns the US state code for one location string, or null if none found. */
 export function stateOf(loc: string): string | null {
@@ -132,14 +132,31 @@ export function stateOf(loc: string): string | null {
   return null;
 }
 
+export function isUSCountry(country: string): boolean {
+  return /^(us|usa|u\.s\.a?\.?|united states( of america)?)$/i.test(country.trim());
+}
+
 function isUSMarker(loc: string): boolean {
   return /\b(united states|usa|u\.s\.a?\.?|us)\b/i.test(loc);
 }
 
-export function classifyLocation(locations: string[], remote: boolean): { isUS: boolean | null; metroTier: MetroTier } {
-  if (locations.length === 0) {
-    return remote ? { isUS: null, metroTier: 2 } : { isUS: null, metroTier: 3 };
-  }
+export function classifyLocation(
+  locations: string[],
+  remote: boolean,
+  country?: string,
+): { isUS: boolean | null; metroTier: MetroTier } {
+  // The ATS's own country field is the most reliable signal when location text is vague.
+  const countryIsUS = country ? isUSCountry(country) : null;
+  const fromCountry = (): { isUS: boolean | null; metroTier: MetroTier } =>
+    countryIsUS === true
+      ? { isUS: true, metroTier: remote ? 2 : 3 }
+      : countryIsUS === false
+        ? { isUS: false, metroTier: null }
+        : remote
+          ? { isUS: null, metroTier: 2 }
+          : { isUS: null, metroTier: 3 };
+
+  if (locations.length === 0) return fromCountry();
   let best: MetroTier = null;
   let anyUS = false;
   let allNonUS = true;
@@ -160,6 +177,7 @@ export function classifyLocation(locations: string[], remote: boolean): { isUS: 
   }
 
   if (anyUS) return { isUS: true, metroTier: best };
+  if (countryIsUS !== null) return fromCountry();
   if (allNonUS) return { isUS: false, metroTier: null };
   // Unknown (e.g. just "Remote", or "Hybrid"): keep it, sorted after known US metros.
   return { isUS: null, metroTier: remote ? 2 : 3 };
@@ -189,7 +207,7 @@ export function dedupeKey(companyId: string, title: string): string {
 // ---------------------------------------------------------------------------
 
 export function classifyJob(job: NormalizedJob, company: Company): Classification {
-  const { isUS, metroTier } = classifyLocation(job.locations, job.remote);
+  const { isUS, metroTier } = classifyLocation(job.locations, job.remote, job.country);
   return {
     roleFamily: classifyRoleFamily(job.title, company.segment, job.department),
     seniority: classifySeniority(job.title),

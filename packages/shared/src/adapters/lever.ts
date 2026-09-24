@@ -39,6 +39,7 @@ export function parseLever(company: Company, data: unknown): NormalizedJob[] {
       postedAt: typeof p.createdAt === "number" ? new Date(p.createdAt).toISOString() : null,
       department: cats.department ?? cats.team ?? undefined,
       descriptionText: p.descriptionPlain ?? undefined,
+      country: p.country || undefined,
     };
   });
 }

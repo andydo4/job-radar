@@ -5,6 +5,9 @@ import {
   classifyRoleFamily,
   classifySeniority,
   dedupeKey,
+  hiddenReason,
+  DEFAULT_FILTER,
+  type ClassifiedJob,
 } from "../src/index.ts";
 
 describe("seniority", () => {
@@ -94,5 +97,33 @@ describe("dedupeKey", () => {
   it("keeps genuinely different roles apart", () => {
     expect(dedupeKey("x", "Associate Scientist - Protein Therapeutics")).not.toBe(dedupeKey("x", "Associate Scientist - Cell Biology"));
     expect(dedupeKey("x", "Analyst, QC")).not.toBe(dedupeKey("x", "Analyst"));
+  });
+});
+
+describe("location with an ATS country field", () => {
+  it.each([
+    [[], false, "US", true, 3],
+    [["Remote"], true, "US", true, 2],
+    [["Remote"], true, "United States of America", true, 2],
+    [["Chihuahua"], false, "Mexico", false, null],
+    [["Toluca"], false, "MX", false, null],
+    [["Toluca", "Pearl River, NY"], false, "Mexico", true, 2], // any US location wins
+    [["Remote"], true, undefined, null, 2],
+    [["Chihuahua, Chihuahua"], false, undefined, false, null], // known non-US city, no country field
+  ] as const)("%j remote=%s country=%s -> US=%s tier=%s", (locs, remote, country, isUS, tier) => {
+    expect(classifyLocation([...locs], remote, country)).toEqual({ isUS, metroTier: tier });
+  });
+});
+
+describe("US-only default filter", () => {
+  const base: Omit<ClassifiedJob, "isUS" | "metroTier"> = {
+    companyId: "x", externalId: "1", title: "Associate Scientist", url: "u", locations: [], remote: false, postedAt: null,
+    roleFamily: "research", seniority: "entry", degreeMin: null, dedupeKey: "x::a",
+  };
+  it("keeps US jobs and hides non-US and unknown ones, with a reason", () => {
+    expect(hiddenReason({ ...base, isUS: true, metroTier: 1 }, DEFAULT_FILTER)).toBeNull();
+    expect(hiddenReason({ ...base, isUS: false, metroTier: null }, DEFAULT_FILTER)).toBe("outside US");
+    expect(hiddenReason({ ...base, isUS: null, metroTier: 2 }, DEFAULT_FILTER)).toBe("location unknown");
+    expect(hiddenReason({ ...base, isUS: true, metroTier: 1, seniority: "senior" }, DEFAULT_FILTER)).toBe("senior level");
   });
 });

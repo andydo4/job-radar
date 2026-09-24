@@ -1,6 +1,7 @@
 import type { Company, FetchResult, NormalizedJob } from "../types.ts";
 import { requestJson, type HttpContext } from "../http.ts";
 import { isRemoteText } from "./util.ts";
+import { htmlToText } from "../text.ts";
 
 /**
  * Workday's careers pages call an undocumented JSON endpoint:
@@ -134,4 +135,57 @@ export async function fetchWorkday(
   // A little slack allows for postings that shift between pages while we paginate.
   const complete = reachedEnd && (total === null || jobs.length >= total - WORKDAY_PAGE_SIZE);
   return { jobs, complete, requests };
+}
+
+// ---------------------------------------------------------------------------
+// Job detail: GET {host}/wday/cxs/{tenant}/{site}{externalPath}
+// Used only for NEW jobs: gives the description (degree parsing), the country
+// (US-only filter), and every location (the list only says "3 Locations").
+// ---------------------------------------------------------------------------
+
+interface WdDetail {
+  jobPostingInfo?: {
+    jobDescription?: string;
+    location?: string;
+    additionalLocations?: string[];
+    country?: { descriptor?: string } | string;
+    remoteType?: string;
+    startDate?: string;
+  };
+}
+
+export function workdayDetailUrl(k: WorkdayKey, externalPath: string): string {
+  return `${workdayHost(k)}/wday/cxs/${k.tenant}/${k.site}${externalPath}`;
+}
+
+export function parseWorkdayDetail(data: unknown): {
+  descriptionText?: string;
+  locations: string[];
+  country?: string;
+  remote: boolean;
+} {
+  const info = (data as WdDetail)?.jobPostingInfo ?? {};
+  const country = typeof info.country === "string" ? info.country : info.country?.descriptor;
+  const locations = [info.location ?? "", ...(info.additionalLocations ?? [])]
+    .map((s) => s.trim())
+    .filter((s) => s && !/^\d+\s+locations?$/i.test(s));
+  return {
+    descriptionText: info.jobDescription ? htmlToText(info.jobDescription) : undefined,
+    locations: [...new Set(locations)],
+    country: country || undefined,
+    remote: /remote/i.test(info.remoteType ?? "") || locations.some(isRemoteText),
+  };
+}
+
+/** Fill in description / country / locations for a Workday job from its detail page. */
+export async function enrichWorkdayJob(ctx: HttpContext, company: Company, job: NormalizedJob): Promise<NormalizedJob> {
+  const k = parseWorkdayKey(company.atsKey);
+  const d = parseWorkdayDetail(await requestJson(ctx, workdayDetailUrl(k, job.externalId)));
+  return {
+    ...job,
+    descriptionText: d.descriptionText ?? job.descriptionText,
+    locations: d.locations.length ? d.locations : job.locations,
+    country: d.country ?? job.country,
+    remote: job.remote || d.remote,
+  };
 }

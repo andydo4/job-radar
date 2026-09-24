@@ -40,6 +40,11 @@ export interface NormalizedJob {
   department?: string;
   /** Plain-text description, when the list endpoint includes it. */
   descriptionText?: string;
+  /**
+   * Country from the ATS when it gives one (Lever `country`, Ashby address,
+   * Workday job detail). ISO code ("US") or a name ("United States of America").
+   */
+  country?: string;
 }
 
 export interface FetchResult {

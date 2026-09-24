@@ -12,6 +12,7 @@ import {
   DEFAULT_FILTER,
   classifyJob,
   compareJobs,
+  enrichWorkdayJob,
   fetchCompanyJobs,
   mapLimit,
   matchesFilter,
@@ -38,6 +39,8 @@ export interface PollOptions {
   /** Workday: hours between full sweeps (full sweeps are what close jobs). */
   fullSweepHours?: number;
   jitterMs?: number;
+  /** Max Workday detail-page lookups per company per run (new jobs only). */
+  maxWorkdayDetails?: number;
   dryRun?: boolean;
   userAgent?: string;
 }
@@ -64,13 +67,30 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
         workday: { maxPages: full ? undefined : (opts.workdayPartialPages ?? 3), pageDelayMs: opts.dryRun ? 0 : 300 },
       });
       const applied = applyFetch(opts.state, company, res, now());
-      for (const j of applied.newJobs) allNew.push({ ...j, ...classifyJob(j, company) });
+
+      // Workday's list only has title + a vague location ("3 Locations"). For NEW jobs only,
+      // read the detail page to get the country (US-only filter), all locations, and the description.
+      let fresh = applied.newJobs;
+      let detailRequests = 0;
+      if (company.ats === "workday" && fresh.length) {
+        const max = opts.maxWorkdayDetails ?? 25;
+        const enriched = await mapLimit(fresh.slice(0, max), 2, async (j) => {
+          detailRequests++;
+          try {
+            return await enrichWorkdayJob(ctx, company, j);
+          } catch {
+            return j; // keep the job; it just stays "location unknown"
+          }
+        });
+        fresh = [...enriched, ...fresh.slice(max)];
+      }
+      for (const j of fresh) allNew.push({ ...j, ...classifyJob(j, company) });
       return {
         company,
         ok: true,
         mode,
         fetched: res.jobs.length,
-        requests: res.requests,
+        requests: res.requests + detailRequests,
         newCount: applied.newJobs.length,
         backlog: applied.backlog,
         closed: applied.closed.length,
