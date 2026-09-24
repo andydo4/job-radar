@@ -3,7 +3,8 @@
  * 150 companies by hand.
  *
  *   npm run discover                 probe everything in seed/candidates.csv
- *   npm run discover -- --write      also append the hits to seed/companies.csv
+ *   npm run discover:write           also append the hits to seed/companies.csv
+ *   (On Windows PowerShell, `npm run discover -- --write` loses the `--`, so use discover:write.)
  *
  * For each candidate it tries a handful of slug guesses ("Moderna Therapeutics" ->
  * modernatherapeutics, moderna-therapeutics, moderna, modernatx...) against the
@@ -50,7 +51,9 @@ export function slugVariants(name: string): string[] {
     words.join("-"),
     core.join(""),
     core.join("-"),
-    core[0] ?? "",
+    // A lone first word ("eli", "novo", "atlas") matched unrelated companies in testing,
+    // so only try it when the whole core name is one word.
+    core.length === 1 ? core[0]! : "",
     `${core.join("")}tx`,
     `${core.join("")}bio`,
     `${core.join("")}inc`,
@@ -115,7 +118,7 @@ export async function discoverOne(ctx: HttpContext, name: string, careersUrl?: s
 }
 
 async function main() {
-  const write = process.argv.includes("--write");
+  const write = process.argv.includes("--write") || process.env.DISCOVER_WRITE === "1";
   const candidatesPath = join(ROOT, "seed/candidates.csv");
   const companiesPath = join(ROOT, "seed/companies.csv");
   const existing = new Set(existsSync(companiesPath) ? parseCsv(readFileSync(companiesPath, "utf8")).map((r) => r.id) : []);

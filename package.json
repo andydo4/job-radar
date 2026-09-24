@@ -14,6 +14,7 @@
     "poll": "tsx packages/worker/src/poll.ts",
     "poll:dry": "tsx packages/worker/src/poll.ts --dry-run",
     "discover": "tsx packages/worker/src/discover.ts",
+    "discover:write": "tsx packages/worker/src/discover.ts --write",
     "workday-test": "tsx packages/worker/src/workday-test.ts",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"

@@ -20,6 +20,13 @@ describe("discover", () => {
     );
   });
 
+  it("never guesses a lone first word for multi-word names", () => {
+    // These matched unrelated boards in real runs (eli, novo, atlas, arch, blue, charles, polaris).
+    expect(slugVariants("Eli Lilly")).not.toContain("eli");
+    expect(slugVariants("Atlas Venture")).not.toContain("atlas");
+    expect(slugVariants("Charles River Laboratories")).not.toContain("charles");
+  });
+
   it("recognizes pasted careers links for every ATS", () => {
     expect(keyFromCareersUrl("https://job-boards.greenhouse.io/ginkgobioworks/jobs/5238882007")).toEqual({ ats: "greenhouse", key: "ginkgobioworks" });
     expect(keyFromCareersUrl("https://boards.greenhouse.io/recursionpharmaceuticals")).toEqual({ ats: "greenhouse", key: "recursionpharmaceuticals" });

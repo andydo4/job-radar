@@ -48,7 +48,7 @@ npm run poll          # live: polls seed/companies.csv from your PC and writes o
 
 ```powershell
 npm run discover              # probes every name in seed/candidates.csv
-npm run discover -- --write   # ...and appends the hits to seed/companies.csv
+npm run discover:write        # ...and appends the hits to seed/companies.csv
 ```
 
 `discover` tries slug guesses (`moderna`, `modernatx`, `moderna-therapeutics`, …) against Greenhouse, Ashby and Lever. It **can't guess Workday** (most big pharma), so for those it lists the misses. Open the company's careers page, copy any job link (e.g. `https://pfizer.wd1.myworkdayjobs.com/en-US/PfizerCareers/job/...`) into the `careers_url` column of `seed/candidates.csv`, and run it again.

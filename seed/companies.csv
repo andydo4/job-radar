@@ -13,3 +13,30 @@ e184,e184,lever,e184,biotech,true
 outpace-bio,Outpace Bio,lever,outpacebio,biotech,true
 pfizer,Pfizer,workday,pfizer|wd1|PfizerCareers,pharma,true
 gilead,Gilead Sciences,workday,gilead|wd1|gileadcareers,pharma,true
+# Added from `npm run discover` on 2026-09-24. Removed 8 false matches (eli, novo, charles, blue, clarion, arch, atlas, polaris).
+alnylam-pharmaceuticals,Alnylam Pharmaceuticals,greenhouse,alnylampharmaceuticals,biotech,true
+beam-therapeutics,Beam Therapeutics,greenhouse,beamtherapeutics,biotech,true
+insitro,insitro,ashby,insitro,biotech,true
+dyno-therapeutics,Dyno Therapeutics,greenhouse,dynotherapeutics,biotech,true
+relay-therapeutics,Relay Therapeutics,greenhouse,relaytherapeutics,biotech,true
+kymera-therapeutics,Kymera Therapeutics,greenhouse,kymeratherapeutics,biotech,true
+asimov,Asimov,ashby,asimov,biotech,true
+xaira-therapeutics,Xaira Therapeutics,greenhouse,xairatherapeutics,biotech,true
+isomorphic-labs,Isomorphic Labs,greenhouse,isomorphiclabs,biotech,true
+eikon-therapeutics,Eikon Therapeutics,greenhouse,eikontherapeutics,biotech,true
+lila-sciences,Lila Sciences,greenhouse,lilasciences,biotech,true
+arsenal-bio,Arsenal Bio,lever,arsenalbio,biotech,true
+tessera-therapeutics,Tessera Therapeutics,greenhouse,tesseratherapeutics,biotech,true
+iambic-therapeutics,Iambic Therapeutics,ashby,iambic-therapeutics,biotech,true
+enveda,Enveda,lever,enveda,biotech,true
+cellarity,Cellarity,greenhouse,cellarity,biotech,true
+octant,Octant,greenhouse,octantbio,biotech,true
+profluent,Profluent,greenhouse,profluent,biotech,true
+chai-discovery,Chai Discovery,ashby,chaidiscovery,biotech,true
+synthego,Synthego,lever,synthego,tools,true
+culture-biosciences,Culture Biosciences,greenhouse,culturebiosciences,tools,true
+avalere-health,Avalere Health,lever,avalerehealth,consulting,true
+flagship-pioneering,Flagship Pioneering,greenhouse,flagshippioneeringinc,vc,true
+5am-ventures,5AM Ventures,lever,5amventures,vc,true
+andreessen-horowitz,Andreessen Horowitz,greenhouse,a16z,vc,true
+arc-institute,Arc Institute,greenhouse,arcinstitute,academic,true
