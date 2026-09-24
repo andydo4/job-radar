@@ -38,11 +38,20 @@ export interface Profile {
   include_internships: boolean;
   metro_tiers: number[];
   hide_contract: boolean;
+  /** After graduating: "work" (done with school), "maybe" (maybe grad school), "grad" (going to grad school). */
+  after_grad: AfterGrad | null;
   onboarded_at: string | null;
 }
 
+export const AFTER_GRAD_OPTIONS = [
+  ["work", "Start working", "No more school after I graduate"],
+  ["maybe", "Maybe grad school", "Show grad-student internships too, marked as a stretch"],
+  ["grad", "Going to grad school", "Master's or PhD right after"],
+] as const;
+export type AfterGrad = (typeof AFTER_GRAD_OPTIONS)[number][0];
+
 export const PROFILE_COLUMNS =
-  "degree, field, grad_month, years_experience, families, include_internships, metro_tiers, hide_contract, onboarded_at";
+  "degree, field, grad_month, years_experience, families, include_internships, metro_tiers, hide_contract, after_grad, onboarded_at";
 
 export const DEFAULT_PROFILE: Profile = {
   degree: null,
@@ -53,6 +62,7 @@ export const DEFAULT_PROFILE: Profile = {
   include_internships: true,
   metro_tiers: [1, 2, 3],
   hide_contract: false,
+  after_grad: null,
   onboarded_at: null,
 };
 
@@ -120,6 +130,7 @@ export function parseProfileForm(
     include_internships: fd.get("include_internships") === "on",
     metro_tiers,
     hide_contract: fd.get("hide_contract") === "on",
+    after_grad: AFTER_GRAD_OPTIONS.some(([v]) => v === s("after_grad")) ? (s("after_grad") as AfterGrad) : null,
   };
   if (Object.keys(errors).length) return { ok: false, errors, draft: data };
   return { ok: true, data };
@@ -136,27 +147,59 @@ export interface QualifyResult {
   label: string;
   /** Why, in plain words, for the tooltip / details. Empty when nothing stands in the way. */
   reasons: string[];
+  /** Timing rules you can't get around (it starts after you graduate, or it's for another class year). Hidden from For you. */
+  ineligible: boolean;
 }
 
 export interface QualifyJob {
   degree_min: string | null;
   experience_min_years: number | null;
   seniority: string;
+  employment_type?: string | null;
+  term?: string | null;
+  start_date?: string | null;
+  intern_levels?: string[] | null;
+  grad_from?: string | null;
+  grad_to?: string | null;
 }
 
 const DEGREE_NAME: Record<string, string> = { bs: "a bachelor's", ms: "a master's", phd: "a PhD" };
+const TERM_MONTH: Record<string, string> = { Winter: "01", Spring: "01", Summer: "06", Fall: "09" };
+const ym = (d: string) => d.slice(0, 7); // "2027-05-01" -> "2027-05"
+
+/** When an internship starts: its start date, else its term ("Summer 2027" -> 2027-06). */
+export function internStart(j: Pick<QualifyJob, "start_date" | "term">): string | null {
+  if (j.start_date) return ym(j.start_date);
+  const m = j.term?.match(/^(Winter|Spring|Summer|Fall) (\d{4})$/);
+  return m ? `${m[2]}-${TERM_MONTH[m[1]!]}` : null;
+}
+
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const monthLabel = (d: string) => `${MON[Number(d.slice(5, 7)) - 1]} ${d.slice(0, 4)}`;
 
 /**
  * Compare what the posting asks for with the profile. Only uses what was read from
- * the posting (degree, years of experience), so "Likely" means "nothing we could read
- * rules you out", not a promise.
+ * the posting (degree, experience, who it's for, when it starts), so "Likely" means
+ * "nothing we could read rules you out", not a promise.
  */
-export function qualify(p: Pick<Profile, "degree" | "years_experience" | "grad_month">, j: QualifyJob, now = new Date()): QualifyResult | null {
+export function qualify(
+  p: Pick<Profile, "degree" | "years_experience" | "grad_month"> & Partial<Pick<Profile, "after_grad">>,
+  j: QualifyJob,
+  now = new Date(),
+): QualifyResult | null {
   if (!p.degree && p.years_experience === null) return null; // no profile yet
   const reasons: string[] = [];
   let level: QualifyLevel = "likely";
+  let ineligible = false;
+  let blocker: string | null = null; // short label for an ineligible job
   const bump = (to: QualifyLevel) => {
     if (to === "unlikely" || (to === "stretch" && level === "likely")) level = to;
+  };
+  const block = (reason: string, label: string) => {
+    reasons.unshift(reason);
+    bump("unlikely");
+    ineligible = true;
+    blocker ??= label;
   };
 
   // Degree ("degree" is the highest one you have or are finishing).
@@ -183,14 +226,56 @@ export function qualify(p: Pick<Profile, "degree" | "years_experience" | "grad_m
     }
   }
 
-  // Internships are usually for current students.
-  if (j.seniority === "intern" && p.grad_month && monthsUntil(p.grad_month, now) < 0) {
-    reasons.push("Internships are usually for current students");
-    bump("stretch");
+  // Graduation timing. Unknown plans are treated as "maybe grad school" (never hides anything by guessing).
+  const plan = p.after_grad ?? "maybe";
+  const grad = p.grad_month ? ym(p.grad_month) : null;
+  const levels = j.intern_levels ?? [];
+  const takesGradStudents = levels.length === 0 || levels.some((l) => l !== "undergrad");
+  const isIntern = j.seniority === "intern" || j.employment_type === "intern";
+
+  if (grad && (j.grad_from || j.grad_to)) {
+    const from = j.grad_from ? ym(j.grad_from) : null;
+    const to = j.grad_to ? ym(j.grad_to) : null;
+    const year = (to ?? from)!.slice(0, 4);
+    if (to && grad > to) {
+      block(`For people graduating by ${monthLabel(j.grad_to!)}; you graduate ${monthLabel(p.grad_month!)}`, `For ${year} grads`);
+    } else if (from && grad < from) {
+      // You graduate before the class it's for: only works if you're back in school by then.
+      if (plan === "work" || !takesGradStudents) block(`For ${year} graduates; you graduate ${monthLabel(p.grad_month!)}`, `For ${year} grads`);
+      else {
+        reasons.push(`For ${year} graduates: only if you're in grad school then`);
+        bump("stretch");
+      }
+    }
   }
 
-  const label = level === "likely" ? "Likely qualify" : level === "stretch" ? "Stretch" : reasons[0]?.startsWith("Asks for a PhD") ? "Needs PhD" : "Unlikely";
-  return { level, label, reasons };
+  if (isIntern && grad) {
+    const start = internStart(j);
+    if (start && start > grad) {
+      if (plan === "work") block(`Starts ${monthLabel(start + "-01")}, after you graduate`, "After you graduate");
+      else if (!takesGradStudents) block(`Undergrad internship that starts after you graduate`, "After you graduate");
+      else if (!ineligible) {
+        reasons.push("Starts after you graduate: only if you're in grad school then");
+        bump("stretch");
+      }
+    } else if (start && (p.degree === "bs" || p.degree === "none") && levels.length && !levels.includes("undergrad")) {
+      block("For grad students; you'll still be an undergrad", "For grad students");
+    } else if (!start && monthsUntil(p.grad_month!, now) < 0) {
+      reasons.push("Internships are usually for current students");
+      bump("stretch");
+    }
+  }
+
+  const label = blocker
+    ? blocker
+    : level === "likely"
+      ? "Likely qualify"
+      : level === "stretch"
+        ? "Stretch"
+        : reasons[0]?.startsWith("Asks for a PhD")
+          ? "Needs PhD"
+          : "Unlikely";
+  return { level, label, reasons, ineligible };
 }
 
 /** Whole months from now until the given "YYYY-MM-DD" (negative = in the past). */

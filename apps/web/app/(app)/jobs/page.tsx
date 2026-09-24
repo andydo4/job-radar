@@ -47,7 +47,11 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): JobFil
   return {
     view: views.find((v) => v === one("view")) ?? "foryou",
     since: one("since") === "visit" || one("since") === "week" ? (one("since") as "visit" | "week") : undefined,
-    family: FAMILIES.some(([f]) => f === one("family")) ? one("family") : undefined,
+    family: (() => {
+      const want = (one("family") ?? "").split(",");
+      const fams = FAMILIES.map(([f]) => f as string).filter((f) => want.includes(f));
+      return fams.length ? fams : undefined;
+    })(),
     exp: exp !== undefined && /^[0-3]$/.test(exp) ? Number(exp) : undefined,
     degree: one("degree") === "bs" || one("degree") === "ms" ? (one("degree") as "bs" | "ms") : undefined,
     pay: one("pay") === "1",
@@ -70,7 +74,7 @@ function href(f: JobFilters, change: Partial<JobFilters>) {
   if (n.fit) p.set("fit", n.fit);
   if (n.starred) p.set("starred", "1");
   if (n.kind) p.set("kind", n.kind);
-  if (n.family) p.set("family", n.family);
+  if (n.family?.length) p.set("family", n.family.join(","));
   if (n.exp !== undefined) p.set("exp", String(n.exp));
   if (n.degree) p.set("degree", n.degree);
   if (n.pay) p.set("pay", "1");
@@ -79,6 +83,15 @@ function href(f: JobFilters, change: Partial<JobFilters>) {
   if (n.sort && n.sort !== "new") p.set("sort", n.sort);
   const s = p.toString();
   return s ? `/jobs?${s}` : "/jobs";
+}
+
+/** Tap a job type: add it to the selection, or take it out (none left = All). Kept in FAMILIES order. */
+function toggleFamily(current: string[] | undefined, fam: string): string[] | undefined {
+  const set = new Set(current ?? []);
+  if (set.has(fam)) set.delete(fam);
+  else set.add(fam);
+  const next = FAMILIES.map(([f]) => f as string).filter((f) => set.has(f));
+  return next.length ? next : undefined;
 }
 
 /** Link to a job's own page that remembers the filtered list you came from. */
@@ -302,7 +315,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   if (f.fit) active.push({ label: f.fit === "likely" ? "Likely qualify" : "Likely or stretch", href: href(f, { fit: undefined }) });
   if (f.starred) active.push({ label: "★ Starred companies", href: href(f, { starred: false }) });
   if (f.kind) active.push({ label: f.kind === "intern" ? "Internships & co-ops" : "Full-time roles", href: href(f, { kind: undefined }) });
-  if (f.family) active.push({ label: FAMILY_LABEL[f.family] ?? f.family, href: href(f, { family: undefined }) });
+  for (const fam of f.family ?? []) active.push({ label: FAMILY_LABEL[fam] ?? fam, href: href(f, { family: toggleFamily(f.family, fam) }) });
   if (f.company) active.push({ label: companyName(f.company), href: href(f, { company: undefined }) });
   if (f.exp !== undefined) active.push({ label: f.exp === 0 ? "No experience needed" : `Up to ${f.exp} yr${f.exp > 1 ? "s" : ""}`, href: href(f, { exp: undefined }) });
   if (f.degree) active.push({ label: f.degree === "bs" ? "Bachelor's is enough" : "Master's is enough", href: href(f, { degree: undefined }) });
@@ -347,6 +360,16 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
               </Link>
             </>
           )}
+        </p>
+      )}
+
+      {!profile.after_grad && (
+        <p className="border border-brand-soft bg-brand-softer px-4 py-3 font-mono text-xs leading-5 text-body">
+          New: tell Primer what you&apos;re doing after you graduate, so internships that start after then (or are for another
+          class year) are handled right.{" "}
+          <Link href="/settings" className="font-medium text-link hover:underline">
+            Answer in Settings →
+          </Link>
         </p>
       )}
 
@@ -416,12 +439,13 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
                     Full-time roles
                   </Chip>
                 </PanelRow>
-                <PanelRow label="Type">
+                <PanelRow label="Types">
                   <Chip href={href(f, { family: undefined })} active={!f.family}>
                     All
                   </Chip>
-                  {FAMILIES.filter(([fam]) => f.view !== "foryou" || profile.families.includes(fam) || f.family === fam).map(([fam, label]) => (
-                    <Chip key={fam} href={href(f, { family: fam })} active={f.family === fam}>
+                  {FAMILIES.filter(([fam]) => f.view !== "foryou" || profile.families.includes(fam) || f.family?.includes(fam)).map(([fam, label]) => (
+                    <Chip key={fam} href={href(f, { family: toggleFamily(f.family, fam) })} active={Boolean(f.family?.includes(fam))}>
+                      {f.family?.includes(fam) ? "✓ " : ""}
                       {label}
                     </Chip>
                   ))}

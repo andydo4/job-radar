@@ -16,6 +16,8 @@ import {
   needsJobPage,
   extractDetails,
   extractTiming,
+  extractAudience,
+  classifySeniority,
   postedAtFromText,
   mapLimit,
   type ClassifiedJob,
@@ -87,6 +89,9 @@ export interface JobInsertRow {
   dates_label: string | null;
   duration_text: string | null;
   deadline: string | null;
+  intern_levels: string[];
+  grad_from: string | null;
+  grad_to: string | null;
   details_version: number;
 }
 
@@ -94,7 +99,7 @@ export interface JobInsertRow {
  * Bump when details extraction improves: every open job below this version is re-processed
  * by backfillDetails() over the next few runs.
  */
-export const DETAILS_VERSION = 2; // 2: term, dates, duration, deadline, Workday posted date
+export const DETAILS_VERSION = 3; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type (consulting practices)
 
 /** A saved job that still needs its details filled in. */
 export interface JobNeedingDetails {
@@ -128,9 +133,13 @@ export interface JobDetailsUpdate {
   dates_label: string | null;
   duration_text: string | null;
   deadline: string | null;
+  intern_levels: string[];
+  grad_from: string | null;
+  grad_to: string | null;
   posted_at: string | null;
   /** Set only when the job's own page was read (careers sites: the real title replaces the guess). */
   title: string | null;
+  /** Always re-computed from the (possibly corrected) title. */
   role_family: string | null;
   seniority: string | null;
   dedupe_key: string | null;
@@ -216,7 +225,12 @@ function needsDetailFetch(j: NormalizedJob, ats: string | undefined): boolean {
 function detailColumns(j: NormalizedJob, seenAt: string) {
   const d = extractDetails(j.title, j.descriptionText, j.detailHints);
   const t = extractTiming(j.title, j.descriptionText, new Date(seenAt));
+  const student = d.employmentType === "intern" || classifySeniority(j.title) === "intern";
+  const a = extractAudience(j.title, j.descriptionText, student);
   return {
+    intern_levels: a.levels,
+    grad_from: a.gradFrom,
+    grad_to: a.gradTo,
     term: t.term,
     start_date: t.startDate,
     end_date: t.endDate,
@@ -413,9 +427,10 @@ export async function backfillDetails(
         ...detailColumns(job, r.first_seen_at),
         posted_at: job.postedAt ?? postedAtFromText(r.posted_text, new Date(r.first_seen_at)),
         title: gotDescription ? job.title : null,
-        role_family: gotDescription ? c.roleFamily : null,
-        seniority: gotDescription ? c.seniority : null,
-        dedupe_key: gotDescription ? c.dedupeKey : null,
+        // Re-classify every time, so improvements to the job-type rules reach jobs already saved.
+        role_family: c.roleFamily,
+        seniority: c.seniority,
+        dedupe_key: c.dedupeKey,
         description_text: gotDescription ? (job.descriptionText ?? "").slice(0, MAX_DESCRIPTION) : null,
         locations: gotDescription ? job.locations : null,
         country: job.country ?? null,

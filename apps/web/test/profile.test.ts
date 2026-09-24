@@ -85,6 +85,7 @@ describe("parseProfileForm", () => {
         include_internships: true,
         metro_tiers: [1, 2],
         hide_contract: false,
+        after_grad: null,
       },
     });
   });
@@ -126,5 +127,45 @@ describe("live check", () => {
     expect(await liveCheck({ ats: "lever", atsKey: "x", externalId: "y" }, boom)).toBe("unknown");
     const gone = async () => new Response("not found", { status: 404 });
     expect(await liveCheck({ ats: "lever", atsKey: "x", externalId: "y" }, gone)).toBe("closed");
+  });
+});
+
+describe("graduation timing", () => {
+  const NOW = new Date("2026-09-23T12:00:00Z");
+  const andy = { degree: "bs" as const, years_experience: 0, grad_month: "2027-05-01", after_grad: "work" as const };
+  const friend = { ...andy, after_grad: "maybe" as const };
+  const intern = (extra: object) => ({ degree_min: null, experience_min_years: null, seniority: "intern", ...extra });
+
+  it("an internship after you graduate: gone if you're done with school", () => {
+    const q = qualify(andy, intern({ term: "Summer 2027" }), NOW)!;
+    expect(q).toMatchObject({ level: "unlikely", ineligible: true, label: "After you graduate" });
+  });
+
+  it("...but a stretch if you might go to grad school (unless it's undergrad-only)", () => {
+    expect(qualify(friend, intern({ term: "Summer 2027" }), NOW)).toMatchObject({ level: "stretch", ineligible: false });
+    expect(qualify(friend, intern({ term: "Summer 2027", intern_levels: ["masters", "phd"] }), NOW)).toMatchObject({ level: "stretch", ineligible: false });
+    expect(qualify(friend, intern({ term: "Summer 2027", intern_levels: ["undergrad"] }), NOW)).toMatchObject({ ineligible: true });
+  });
+
+  it("before you graduate: fine, unless it's for grad students only", () => {
+    expect(qualify(andy, intern({ term: "Spring 2027" }), NOW)).toMatchObject({ level: "likely", ineligible: false });
+    expect(qualify(andy, intern({ start_date: "2027-01-12", intern_levels: ["phd"] }), NOW)).toMatchObject({ ineligible: true, label: "For grad students" });
+  });
+
+  it("class-year postings: '2028 graduates'", () => {
+    const job = intern({ term: "Summer 2027", intern_levels: ["undergrad", "masters"], grad_from: "2027-12-01", grad_to: "2028-12-01" });
+    expect(qualify(andy, job, NOW)).toMatchObject({ ineligible: true, label: "For 2028 grads" });
+    expect(qualify(friend, job, NOW)).toMatchObject({ level: "stretch", ineligible: false });
+    // New-grad role for people graduating by June 2027: you fit.
+    const newGrad = { degree_min: "bs", experience_min_years: 0, seniority: "entry", grad_to: "2027-06-01" };
+    expect(qualify(andy, newGrad, NOW)).toMatchObject({ level: "likely", ineligible: false });
+    expect(qualify({ ...andy, grad_month: "2028-05-01" }, newGrad, NOW)).toMatchObject({ ineligible: true });
+  });
+
+  it("parses the plan from the form", () => {
+    const f = new FormData();
+    for (const [k, v] of [["degree", "bs"], ["families", "research"], ["metro_tiers", "1"], ["after_grad", "maybe"]]) f.append(k, v!);
+    const r = parseProfileForm(f);
+    expect(r.ok && r.data.after_grad).toBe("maybe");
   });
 });

@@ -6,3 +6,4 @@ export * from "./filter.ts";
 export * from "./adapters/index.ts";
 export * from "./details.ts";
 export * from "./dates.ts";
+export * from "./audience.ts";

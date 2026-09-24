@@ -1,6 +1,15 @@
--- Primer: companies that run their own careers site (AbbVie, Bayer, Boehringer Ingelheim, ...).
+-- Primer: companies that run their own careers site (AbbVie, Bayer, Boehringer Ingelheim, ...),
+-- who each posting is for (student level + graduation window), and each person's plans after graduating.
 -- Run once in Supabase: SQL Editor -> New query -> paste this whole file -> Run. Safe to re-run.
 -- Requires 0001-0005.
+
+-- 0. Who a posting is for (read by packages/shared/src/audience.ts) and your plans after graduating.
+alter table public.jobs
+  add column if not exists intern_levels text[] not null default '{}', -- undergrad / masters / phd / mba
+  add column if not exists grad_from date,                             -- graduation window the posting targets
+  add column if not exists grad_to date;
+alter table public.profiles
+  add column if not exists after_grad text check (after_grad in ('work', 'maybe', 'grad'));
 
 -- 1. Allow the new "careersite" board type.
 alter table public.companies drop constraint if exists companies_ats_check;
@@ -33,6 +42,9 @@ as $$
     dates_label = x.dates_label,
     duration_text = x.duration_text,
     deadline = x.deadline,
+    intern_levels = coalesce(x.intern_levels, '{}'),
+    grad_from = x.grad_from,
+    grad_to = x.grad_to,
     posted_at = coalesce(j.posted_at, x.posted_at),
     description_text = coalesce(x.description_text, j.description_text),
     locations = coalesce(x.locations, j.locations),
@@ -60,6 +72,9 @@ as $$
     dates_label text,
     duration_text text,
     deadline date,
+    intern_levels text[],
+    grad_from date,
+    grad_to date,
     posted_at timestamptz,
     description_text text,
     locations text[],

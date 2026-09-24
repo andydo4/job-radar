@@ -49,6 +49,9 @@ export interface JobRow {
   dates_label: string | null;
   duration_text: string | null;
   deadline: string | null;
+  intern_levels: string[] | null;
+  grad_from: string | null;
+  grad_to: string | null;
   company: { name: string; segment: string } | null;
 }
 
@@ -56,7 +59,8 @@ export interface JobFilters {
   view: View;
   /** Only jobs first seen since your last visit, or in the last 7 days. */
   since?: "visit" | "week";
-  family?: string;
+  /** One or more job types (shown together). */
+  family?: string[];
   /** Max years of experience a posting may ask for (jobs that don't say are kept). */
   exp?: number;
   /** Highest degree you have: hides jobs that need more ("bs" hides MS/PhD-only). */
@@ -79,7 +83,7 @@ export interface JobFilters {
 export type SortKey = "new" | "company" | "pay" | "deadline";
 
 const COLUMNS =
-  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, term, start_date, end_date, dates_label, duration_text, deadline, company:companies(name, segment)";
+  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, term, start_date, end_date, dates_label, duration_text, deadline, intern_levels, grad_from, grad_to, company:companies(name, segment)";
 
 /** One role, possibly posted as several listings (one per city). */
 export interface JobGroup {
@@ -157,7 +161,7 @@ function applyFilters<T extends Q>(q: T, opts: JobFilters, viewer: Viewer): T {
 
   if (opts.since === "visit") q = q.eq("is_backlog", false).gte("first_seen_at", viewer.newSince);
   if (opts.since === "week") q = q.eq("is_backlog", false).gte("first_seen_at", new Date(Date.now() - 7 * 86_400_000).toISOString());
-  if (opts.family) q = q.eq("role_family", opts.family);
+  if (opts.family?.length) q = q.in("role_family", opts.family);
   if (opts.exp !== undefined) anyOf.push(`experience_min_years.is.null,experience_min_years.lte.${opts.exp}`);
   if (opts.degree === "bs") anyOf.push("degree_min.is.null,degree_min.eq.bs");
   if (opts.degree === "ms") anyOf.push("degree_min.is.null,degree_min.in.(bs,ms)");
@@ -186,7 +190,7 @@ export async function getJobs(
     const ids = [...viewer.actions].filter(([, st]) => st === opts.view).map(([id]) => id);
     if (!ids.length) return { groups: [], total: 0, hiddenCount: countHidden(viewer) };
     let q = supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", ids.slice(0, 1000)).order("first_seen_at", { ascending: false });
-    if (opts.family) q = q.eq("role_family", opts.family);
+    if (opts.family?.length) q = q.in("role_family", opts.family);
     if (opts.company) q = q.eq("company_id", opts.company);
     const { data, error } = await q;
     if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
@@ -233,6 +237,8 @@ export async function getJobs(
   let groups_ = [...groups.values()];
   if (!isMarkView(opts.view)) groups_ = groups_.filter((g) => g.status !== "hidden");
   else if (opts.view !== "hidden") groups_ = groups_.filter((g) => g.status === opts.view);
+  // For you never shows jobs you can't take (e.g. an internship that starts after you graduate).
+  if (opts.view === "foryou") groups_ = groups_.filter((g) => !qualify(viewer.profile, g.lead)?.ineligible);
   if (opts.fit) {
     const ok = opts.fit === "likely" ? ["likely"] : ["likely", "stretch"];
     groups_ = groups_.filter((g) => {

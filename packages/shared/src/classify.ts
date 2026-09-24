@@ -17,6 +17,21 @@ import type {
 const SUPPORT =
   /\b(recruit\w*|talent acquisition|human resources|hr\b|people (operations|partner)|payroll|accountant|accounting|accounts payable|controller|tax|treasury|legal counsel|paralegal|attorney|office manager|receptionist|executive assistant|administrative assistant|facilities|janitor|custodian|security officer|it support|help ?desk|desktop support)\b/i;
 
+/**
+ * Consulting practices that aren't life-science consulting (generalist firms like Charles River Associates,
+ * Guidehouse and Huron post these too). Unless the title/department also mentions health or life sciences,
+ * these are "other" (not shown), e.g. "Cyber and Forensic Technology Consulting Analyst".
+ */
+const NON_LIFESCI_PRACTICE =
+  /\b(cyber\w*|forensic\w*|technology consult\w*|tech(nology)? (risk|advisory|strategy)|information security|infosec|data privacy|it (consult\w*|advisory|strategy)|digital transformation|cloud|software|erp|sap\b|salesforce|antitrust|competition economics|litigation|disputes?|investigations?|e-?discovery|financial (economics|services|advisory)|valuation|restructuring|transaction services|m&a advisory|tax|audit|accounting|actuar\w*|insurance|energy|utilities|oil|power|mining|real estate|construction|infrastructure|public sector|government|defen[cs]e|federal|labor (and|&) employment|transfer pricing|intellectual property|ip (valuation|litigation)|marketing science|retail|consumer products)\b/i;
+const LIFE_SCI = /\b(life sciences?|health\s?care|health|pharma\w*|biotech\w*|bio(pharma|logics|science)\w*|medical|medtech|clinical|patient|therapeutic\w*|drug|oncology|payer|provider|hospital)\b/i;
+
+/** "consulting" only when it's life-science / health consulting (or the practice isn't named). */
+function consultingOrOther(title: string, department?: string): RoleFamily {
+  const text = `${title} ${department ?? ""}`;
+  return NON_LIFESCI_PRACTICE.test(text) && !LIFE_SCI.test(text) ? "other" : "consulting";
+}
+
 const FAMILY_RULES: [RoleFamily, RegExp][] = [
   ["compbio", /\b(bioinformatic\w*|computational (biolog\w*|chemist\w*|scien\w*)|machine learning scientist|data scien\w*|biostatistic\w*|statistical programmer|cheminformatic\w*)\b/i],
   ["regulatory", /\b(regulatory|pharmacovigilance|drug safety|medical writ\w*)\b/i],
@@ -31,9 +46,9 @@ const FAMILY_RULES: [RoleFamily, RegExp][] = [
 export function classifyRoleFamily(title: string, segment: Segment, department?: string): RoleFamily {
   if (SUPPORT.test(title)) return "other";
   // At consulting / VC firms, the business-facing roles *are* the job family.
-  if (segment === "consulting") return "consulting";
+  if (segment === "consulting") return consultingOrOther(title, department);
   if (segment === "vc") return "vc";
-  if (/\b(consult\w*|strategy (analyst|associate)|management consult\w*)\b/i.test(title)) return "consulting";
+  if (/\b(consult\w*|strategy (analyst|associate)|management consult\w*)\b/i.test(title)) return consultingOrOther(title, department);
   if (/\b(venture|investment (analyst|associate)|entrepreneur[- ]in[- ]residence|\beir\b)\b/i.test(title)) return "vc";
 
   const haystack = `${title} ${department ?? ""}`;

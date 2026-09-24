@@ -93,7 +93,15 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
       {q && (
         <div className={`flex flex-col gap-1 border px-4 py-3 font-mono text-sm ${q.level === "likely" ? "border-success/30 bg-success-soft text-success" : q.level === "stretch" ? "border-warning/30 bg-warning-soft text-warning" : "border-danger/30 bg-danger-soft text-danger"}`}>
           <p className="font-semibold">
-            {q.level === "likely" ? "✓ You likely qualify" : q.level === "stretch" ? "A stretch, but worth a look" : q.label === "Needs PhD" ? "Needs a PhD" : "Probably out of reach for now"}
+            {q.ineligible
+              ? `Not one you can take: ${q.label.toLowerCase()}`
+              : q.level === "likely"
+                ? "✓ You likely qualify"
+                : q.level === "stretch"
+                  ? "A stretch, but worth a look"
+                  : q.label === "Needs PhD"
+                    ? "Needs a PhD"
+                    : "Probably out of reach for now"}
           </p>
           <p className="text-xs leading-5">
             {q.reasons.length ? `${q.reasons.join(" · ")}.` : "Nothing in the posting's degree or experience asks rules you out."} Based on your{" "}

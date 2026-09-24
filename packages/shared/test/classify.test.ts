@@ -47,6 +47,14 @@ describe("role family", () => {
     ["Recruiting Coordinator", "consulting", "other"],
     ["Investment Associate", "vc", "vc"],
     ["Strategy Analyst, Commercial Consulting", "pharma", "consulting"],
+    // Generalist firms: only life-science / health practices count as consulting.
+    ["(2028 Bachelor's/Master's graduates) Cyber and Forensic Technology Consulting Analyst/Associate Intern (Summer 2027)", "consulting", "other"],
+    ["Antitrust & Competition Economics Associate", "consulting", "other"],
+    ["Energy Consulting Analyst", "consulting", "other"],
+    ["Life Sciences Consulting Associate", "consulting", "consulting"],
+    ["Health Care Technology Consulting Analyst", "consulting", "consulting"],
+    ["Forensic Services Analyst, Life Sciences Litigation", "consulting", "consulting"],
+    ["Technology Consulting Analyst", "pharma", "other"],
     ["Payroll Specialist", "biotech", "other"],
   ] as const)("%s @ %s -> %s", (title, segment, expected) => {
     expect(classifyRoleFamily(title, segment)).toBe(expected);

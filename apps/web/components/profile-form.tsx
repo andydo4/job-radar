@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { buttonClass } from "@/components/ui";
-import { DEGREE_OPTIONS, TIER_OPTIONS, type Profile, type ProfileFormState } from "@/lib/profile";
+import { AFTER_GRAD_OPTIONS, DEGREE_OPTIONS, TIER_OPTIONS, type Profile, type ProfileFormState } from "@/lib/profile";
 
 type Action = (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
 
@@ -111,6 +111,27 @@ export function ProfileForm({
             </select>
             <p className="font-mono text-xs text-subtle">Full-time, after school. Co-ops count.</p>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2" role="radiogroup" aria-labelledby="after-grad-label">
+          <p id="after-grad-label" className="font-mono text-sm font-medium text-heading">
+            After you graduate
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {AFTER_GRAD_OPTIONS.map(([id, label, help]) => (
+              <label key={id} className={optionClass}>
+                <input type="radio" name="after_grad" value={id} defaultChecked={profile.after_grad === id} className="mt-1 accent-brand" />
+                <span className="flex flex-col">
+                  <span className="font-medium text-heading">{label}</span>
+                  <span className="text-xs text-subtle">{help}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <p className="font-mono text-xs text-subtle">
+            Internships that start after your graduation month, or that are for a different class year, are left out of For you
+            unless you might be in grad school then.
+          </p>
         </div>
       </fieldset>
 
