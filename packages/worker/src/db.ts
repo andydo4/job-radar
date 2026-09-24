@@ -109,7 +109,7 @@ export interface JobInsertRow {
  * Bump when details extraction improves: every open job below this version is re-processed
  * by backfillDetails() over the next few runs.
  */
-export const DETAILS_VERSION = 6; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type. 4: at-a-glance parsing. 5: states/places for the map + non-US "…, DE" fix. 6: "Indianapolis IN" (no comma) locations
+export const DETAILS_VERSION = 7; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type. 4: at-a-glance parsing. 5: states/places for the map + non-US "…, DE" fix. 6: "Indianapolis IN" (no comma) locations. 7: software jobs at biotech/pharma -> Software
 
 /** A saved job that still needs its details filled in. */
 export interface JobNeedingDetails {

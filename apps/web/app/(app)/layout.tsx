@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AccountMenu } from "@/components/account-menu";
 import { NavTabs } from "@/components/nav-tabs";
 import { CountdownBadge } from "@/components/ui";
 import { getPrograms, upcomingDeadlines } from "@/lib/data";
@@ -37,7 +38,15 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             </span>
             <span className="font-mono text-base font-semibold text-heading">Primer</span>
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="sm:hidden">
+            <AccountMenu
+              name={name}
+              avatar={avatar}
+              theme={theme}
+              checker={lastRun ? { text: `${stale ? "Checker stalled · " : "Checked "}${timeAgo(lastRun.finished_at)}`, stale } : undefined}
+            />
+          </div>
+          <div className="hidden items-center gap-3 sm:flex">
             {lastRun && (
               <span
                 title={`Job checker last finished ${new Date(lastRun.finished_at).toLocaleString()}`}

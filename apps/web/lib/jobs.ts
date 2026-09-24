@@ -4,6 +4,7 @@ import type { CompanyPref, JobStatus } from "./me";
 import { allowedDegrees, maxExperience, qualify, type Profile } from "./profile";
 import { postedTime } from "./sort";
 import { inPlace, stateCounts, type StateCount } from "./map";
+import { careersUrl } from "./careers";
 
 export const FAMILIES = [
   ["research", "Research"],
@@ -104,6 +105,8 @@ export interface JobFilters {
   /** Internships & co-ops only, or everything else. */
   kind?: "intern" | "fulltime";
   sort?: SortKey;
+  /** How many roles to show as cards ("Load more" adds PAGE_SIZE). */
+  show?: number;
   /** Show the map instead of the list. */
   map?: boolean;
   /** Only roles in this state ("MA"), "REMOTE", or "NONE" (no state listed). */
@@ -232,31 +235,72 @@ async function loadRows(supabase: SupabaseClient, opts: JobFilters, viewer: View
     return (data ?? []) as unknown as Row[];
   }
   // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
-  let q = applyFilters(supabase.from("jobs").select(columns), opts, viewer)
-    .order("is_backlog", { ascending: true })
-    .order("posted_at", { ascending: false, nullsFirst: false })
-    .order("first_seen_at", { ascending: false })
-    .limit(limit);
-  if (opts.company) q = q.eq("company_id", opts.company);
-  const { data, error } = await q;
-  if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
-  return ((data ?? []) as unknown as JobRow[]).map((r) => ({ ...r, closed_at: null }));
+  // Supabase returns at most 1,000 rows per request, so read in pages (the first one also counts them).
+  const PAGE = 1000;
+  const page = (from: number, count: boolean) => {
+    let q = applyFilters(supabase.from("jobs").select(columns, count ? { count: "exact" } : undefined), opts, viewer)
+      .order("is_backlog", { ascending: true })
+      .order("posted_at", { ascending: false, nullsFirst: false })
+      .order("first_seen_at", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, Math.min(from + PAGE, limit) - 1);
+    if (opts.company) q = q.eq("company_id", opts.company);
+    return q;
+  };
+  const first = await page(0, true);
+  if (first.error) throw new Error(`Couldn't load jobs: ${first.error.message}`);
+  const rows = [...((first.data ?? []) as unknown as JobRow[])];
+  const total = Math.min(first.count ?? rows.length, limit);
+  if (total > rows.length && rows.length > 0) {
+    const step = rows.length; // what the server actually allows per request
+    const rest = await Promise.all(Array.from({ length: Math.ceil((total - step) / step) }, (_, i) => page(step * (i + 1), false)));
+    for (const r of rest) {
+      if (r.error) throw new Error(`Couldn't load jobs: ${r.error.message}`);
+      rows.push(...((r.data ?? []) as unknown as JobRow[]));
+    }
+  }
+  return rows.map((r) => ({ ...r, closed_at: null }));
 }
 
+/** Cards per "Load more". */
+export const PAGE_SIZE = 50;
+
+/** How many rows a list or the map looks at (light columns, so this stays quick). */
+const ROW_LIMIT = 8000;
+
+/**
+ * The job list. Every matching role is grouped, filtered and sorted from light rows; only the
+ * first `show` roles get their full rows (requirements, at-a-glance...) for the cards.
+ * `all` = every matching role (light), for counts.
+ */
 export async function getJobs(
   supabase: SupabaseClient,
   opts: JobFilters,
   viewer: Viewer,
-): Promise<{ groups: JobGroup[]; total: number; hiddenCount: number }> {
-  const rows = await loadRows(supabase, opts, viewer, COLUMNS, 1500);
-  let groups = groupRows(rows, opts, viewer);
-  if (opts.state) groups = groups.filter((g) => inPlace(g, opts.state!, opts.city));
-  return { groups, total: rows.length, hiddenCount: countHidden(viewer) };
+  show = Infinity,
+): Promise<{ groups: JobGroup[]; all: JobGroup[]; hiddenCount: number; truncated: boolean }> {
+  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, ROW_LIMIT);
+  let all = groupRows(light, opts, viewer);
+  if (opts.state) all = all.filter((g) => inPlace(g, opts.state!, opts.city));
+  const groups = await hydrate(supabase, all.slice(0, show));
+  return { groups, all, hiddenCount: countHidden(viewer), truncated: light.length >= ROW_LIMIT };
 }
 
-/** Just what grouping, For you, Fit, sorting and the map need (no requirements etc.), so many rows stay light. */
-const MAP_COLUMNS =
-  "id, company_id, dedupe_key, locations, remote, seniority, degree_min, experience_min_years, employment_type, metro_tier, is_backlog, first_seen_at, posted_at, posted_text, salary_max, salary_min, salary_period, term, start_date, end_date, dates_label, deadline, intern_levels, grad_from, grad_to, states, places, company:companies(name, segment)";
+/** Just what grouping, For you, Fit, sorting, counts and the map need (no requirements etc.). */
+const LIGHT_COLUMNS =
+  "id, company_id, title, role_family, dedupe_key, locations, remote, seniority, degree_min, experience_min_years, employment_type, metro_tier, is_backlog, first_seen_at, posted_at, posted_text, salary_max, salary_min, salary_period, term, start_date, end_date, dates_label, deadline, intern_levels, grad_from, grad_to, states, places, company:companies(name, segment)";
+
+/** Swap in the full rows for the roles that will be shown as cards. */
+async function hydrate(supabase: SupabaseClient, groups: JobGroup[]): Promise<JobGroup[]> {
+  const ids = groups.flatMap((g) => g.listings.map((l) => l.id));
+  const full = new Map<number, Row>();
+  for (let i = 0; i < ids.length; i += 500) {
+    const { data, error } = await supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", ids.slice(i, i + 500));
+    if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+    for (const r of (data ?? []) as unknown as Row[]) full.set(r.id, r);
+  }
+  return groups.map((g) => ({ ...g, lead: full.get(g.lead.id) ?? g.lead, listings: g.listings.map((l) => full.get(l.id) ?? l) }));
+}
 
 /**
  * The map: role counts per state under the current filters (ignoring the picked state), and the
@@ -266,24 +310,13 @@ export async function getMapJobs(
   supabase: SupabaseClient,
   opts: JobFilters,
   viewer: Viewer,
-): Promise<{ counts: StateCount[]; all: JobGroup[]; selected: JobGroup[]; hiddenCount: number; truncated: boolean }> {
-  const LIMIT = 8000;
-  const light = await loadRows(supabase, opts, viewer, MAP_COLUMNS, LIMIT);
+  show = Infinity,
+): Promise<{ counts: StateCount[]; all: JobGroup[]; picked: JobGroup[]; selected: JobGroup[]; hiddenCount: number; truncated: boolean }> {
+  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, ROW_LIMIT);
   const all = groupRows(light, opts, viewer);
-  let selected: JobGroup[] = [];
-  if (opts.state) {
-    const picked = all.filter((g) => inPlace(g, opts.state!, opts.city));
-    // Swap in the full rows (requirements, at-a-glance fields...) for the cards.
-    const ids = picked.flatMap((g) => g.listings.map((l) => l.id));
-    const full = new Map<number, Row>();
-    for (let i = 0; i < ids.length; i += 500) {
-      const { data, error } = await supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", ids.slice(i, i + 500));
-      if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
-      for (const r of (data ?? []) as unknown as Row[]) full.set(r.id, r);
-    }
-    selected = picked.map((g) => ({ ...g, lead: full.get(g.lead.id) ?? g.lead, listings: g.listings.map((l) => full.get(l.id) ?? l) }));
-  }
-  return { counts: stateCounts(all), all, selected, hiddenCount: countHidden(viewer), truncated: light.length >= LIMIT };
+  const picked = opts.state ? all.filter((g) => inPlace(g, opts.state!, opts.city)) : [];
+  const selected = await hydrate(supabase, picked.slice(0, show));
+  return { counts: stateCounts(all), all, picked, selected, hiddenCount: countHidden(viewer), truncated: light.length >= ROW_LIMIT };
 }
 
 /** Rows -> roles (one per dedupe key), minus hidden / ineligible / off-fit ones, sorted. */
@@ -572,12 +605,13 @@ export async function getCompany(
   id: string,
 ): Promise<{ id: string; name: string; segment: string; careersite_url: string | null; open: number } | null> {
   const [{ data: co }, { data: jobs }] = await Promise.all([
-    supabase.from("companies").select("id, name, segment, careersite_url").eq("id", id).eq("active", true).maybeSingle(),
+    supabase.from("companies").select("id, name, segment, ats, ats_key").eq("id", id).eq("active", true).maybeSingle(),
     supabase.from("jobs").select("dedupe_key").eq("company_id", id).is("closed_at", null).eq("is_us", true).limit(5000),
   ]);
   if (!co) return null;
   const open = new Set((jobs ?? []).map((j: { dedupe_key: string }) => j.dedupe_key)).size;
-  return { ...(co as { id: string; name: string; segment: string; careersite_url: string | null }), open };
+  const c = co as { id: string; name: string; segment: string; ats: string; ats_key: string };
+  return { id: c.id, name: c.name, segment: c.segment, careersite_url: careersUrl(c.ats, c.ats_key), open };
 }
 
 /** Every company Primer watches, with how many open roles each has right now. */

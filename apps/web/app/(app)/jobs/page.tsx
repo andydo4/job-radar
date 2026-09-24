@@ -18,6 +18,7 @@ import {
   getJobs,
   getLastRun,
   getMapJobs,
+  PAGE_SIZE,
   isMarkView,
   postedLabel,
   salaryLabel,
@@ -69,12 +70,15 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): JobFil
     map: one("mode") === "map",
     state: parseState(one("state")),
     city: parseState(one("state")) ? parseCity(one("city")) ?? (one("city") === "" ? "" : undefined) : undefined,
+    show: /^\d{1,4}$/.test(one("show") ?? "") ? Math.min(2000, Math.max(PAGE_SIZE, Number(one("show")))) : undefined,
   };
 }
 
 /** Link to the same page with some filters changed (undefined/false removes one). */
 function href(f: JobFilters, change: Partial<JobFilters>) {
-  const n = { ...f, ...change };
+  // "Load more" depth is kept only for this exact list (and links back to it), not when a filter changes.
+  const keepShow = "show" in change || Object.keys(change).length === 0;
+  const n = { ...f, ...change, show: keepShow ? ("show" in change ? change.show : f.show) : undefined };
   const p = new URLSearchParams();
   // Always explicit, so a bare /jobs means "bring back my last filters".
   p.set("view", n.view);
@@ -92,6 +96,7 @@ function href(f: JobFilters, change: Partial<JobFilters>) {
   if (n.sort && n.sort !== "new") p.set("sort", n.sort);
   if (n.state) p.set("state", n.state);
   if (n.state && n.city !== undefined) p.set("city", n.city);
+  if (n.show && n.show > PAGE_SIZE) p.set("show", String(n.show));
   const s = p.toString();
   return s ? `/jobs?${s}` : "/jobs";
 }
@@ -135,7 +140,7 @@ function Tab({ href, active, children }: { href: string; active: boolean; childr
       href={href}
       scroll={false}
       aria-current={active ? "page" : undefined}
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 px-3 font-mono text-sm whitespace-nowrap transition-colors duration-100 ${
+      className={`inline-flex h-9 min-w-0 shrink-0 items-center justify-center gap-1 px-1 font-mono text-xs whitespace-nowrap transition-colors duration-100 sm:gap-1.5 sm:px-3 sm:text-sm ${
         active ? "bg-heading font-medium text-bg" : "text-subtle hover:bg-muted hover:text-heading"
       }`}
     >
@@ -145,22 +150,22 @@ function Tab({ href, active, children }: { href: string; active: boolean; childr
 }
 
 /** List / Map switch; the choice is part of the URL, so it's remembered like the filters. */
-function ModeSwitch({ listHref, mapHref, map }: { listHref: string; mapHref: string; map: boolean }) {
+function ModeSwitch({ listHref, mapHref, map, compact }: { listHref: string; mapHref: string; map: boolean; compact?: boolean }) {
   const cls = (on: boolean) =>
-    `inline-flex h-8 items-center gap-1.5 px-3 font-mono text-xs transition-colors duration-100 ${on ? "bg-brand text-white" : "text-body hover:bg-muted"}`;
+    `inline-flex h-8 items-center gap-1.5 ${compact ? "px-2.5" : "px-3"} font-mono text-xs transition-colors duration-100 ${on ? "bg-brand text-white" : "text-body hover:bg-muted"}`;
   return (
     <div role="group" aria-label="Show jobs as" className="inline-flex shrink-0 self-start border border-line-strong bg-surface p-0.5 sm:self-auto">
       <Link href={listHref} scroll={false} aria-current={!map ? "true" : undefined} className={cls(!map)}>
         <svg aria-hidden viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="square" />
         </svg>
-        List
+        <span className={compact ? "sr-only" : ""}>List</span>
       </Link>
       <Link href={mapHref} scroll={false} aria-current={map ? "true" : undefined} className={cls(map)}>
         <svg aria-hidden viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
           <path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5zM5.5 2v10.5M10.5 3.5V14" strokeLinejoin="round" />
         </svg>
-        Map
+        <span className={compact ? "sr-only" : ""}>Map</span>
       </Link>
     </div>
   );
@@ -170,7 +175,7 @@ function PanelRow({ label, children }: { label: string; children: React.ReactNod
   return (
     <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
       <span className="w-24 shrink-0 font-mono text-[11px] font-medium tracking-[0.04em] text-subtle uppercase">{label}</span>
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0">{children}</div>
+      <div className="flex flex-wrap gap-2">{children}</div>
     </div>
   );
 }
@@ -319,6 +324,21 @@ function JobCard({
   );
 }
 
+/** "Showing 50 of 812 · Load 50 more". A link, so the deeper list survives Back from a job page. */
+function LoadMore({ shown, total, href }: { shown: number; total: number; href: string }) {
+  if (total <= shown) return total > PAGE_SIZE ? <p className="text-center font-mono text-xs text-subtle">All {total} roles shown</p> : null;
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <Link href={href} scroll={false} className="inline-flex h-11 w-full items-center justify-center border border-line-strong bg-surface font-mono text-sm font-medium text-heading hover:bg-muted sm:w-auto sm:px-8">
+        Load {Math.min(PAGE_SIZE, total - shown)} more
+      </Link>
+      <p className="font-mono text-xs text-subtle">
+        Showing {shown} of {total} roles
+      </p>
+    </div>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Map mode
 // ---------------------------------------------------------------------------
@@ -346,9 +366,11 @@ function MapView({
   baseHref,
   cityHref,
   jobList,
+  moreHref,
 }: {
   f: JobFilters;
-  data: { counts: StateCount[]; all: JobGroup[]; selected: JobGroup[]; truncated: boolean };
+  data: { counts: StateCount[]; all: JobGroup[]; picked: JobGroup[]; selected: JobGroup[]; truncated: boolean };
+  moreHref: string;
   lastRun: boolean;
   /** This page without a picked state. */
   baseHref: string;
@@ -381,7 +403,7 @@ function MapView({
         {data.truncated && <p className="font-mono text-[11px] text-subtle">Counts use the newest 8,000 listings. Add a filter to narrow it down.</p>}
       </section>
 
-      <div className="flex min-w-0 flex-col gap-4">
+      <div className="flex min-w-0 flex-col gap-4 xl:sticky xl:top-4 xl:max-h-[calc(100dvh-9rem)] xl:overflow-y-auto xl:overscroll-contain">
         {!sel ? (
           states.length === 0 ? (
             <EmptyState
@@ -416,7 +438,7 @@ function MapView({
           )
         ) : (
           <>
-            <div className="flex flex-col gap-3 border border-line bg-surface p-4 sm:p-5">
+            <div className="flex flex-col gap-3 border border-line bg-surface p-4 sm:p-5 xl:sticky xl:top-0 xl:z-10">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h2 className="font-serif text-2xl leading-tight text-heading">{placeName(sel.code)}</h2>
@@ -447,7 +469,10 @@ function MapView({
             {shown === 0 || data.selected.length === 0 ? (
               <EmptyState title={`No matching roles in ${placeName(sel.code)}`} body="Nothing here matches these filters. Pick another state, or remove a filter." />
             ) : (
-              jobList(data.selected)
+              <>
+                {jobList(data.selected)}
+                <LoadMore shown={data.selected.length} total={data.picked.length} href={moreHref} />
+              </>
             )}
           </>
         )}
@@ -487,18 +512,21 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   ]);
   const viewer = { profile, actions, newSince, companyPrefs };
   const [jobs, lastRun, companyCount, companies] = await Promise.all([
-    f.map ? getMapJobs(supabase, f, viewer) : getJobs(supabase, f, viewer),
+    f.map ? getMapJobs(supabase, f, viewer, f.show ?? PAGE_SIZE) : getJobs(supabase, f, viewer, f.show ?? PAGE_SIZE),
     getLastRun(supabase),
     getCompanyCount(supabase),
     getCompanyCounts(supabase, f, viewer),
   ]);
   const mapData = "counts" in jobs ? jobs : null;
   // The cards shown: the list, or on the map the roles in the picked state.
-  const groups = mapData ? mapData.selected : (jobs as { groups: JobGroup[] }).groups;
+  const listData = mapData ? null : (jobs as Awaited<ReturnType<typeof getJobs>>);
+  const groups = mapData ? mapData.selected : listData!.groups;
+  // Every matching role (the cards are the first `show` of these).
+  const matching = mapData ? mapData.picked : listData!.all;
   const hiddenCount = jobs.hiddenCount;
   const listHref = href(f, {});
   const baseQuery = href(f, { company: undefined }).replace(/^\/jobs\??/, "");
-  const newCount = (mapData ? mapData.all : groups).filter((g) => g.isNew).length;
+  const newCount = (mapData ? mapData.all : listData!.all).filter((g) => g.isNew).length;
   const marks = isMarkView(f.view);
   const counts = { saved: 0, applied: 0 };
   for (const st of actions.values()) if (st === "saved" || st === "applied") counts[st]++;
@@ -557,7 +585,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
 
   return (
     <div className="flex flex-col gap-6">
-      <RememberFilters query={listHref.replace(/^\/jobs\??/, "")} />
+      <RememberFilters query={href(f, { show: undefined }).replace(/^\/jobs\??/, "")} />
       {sp.saved === "profile" && (
         <p role="status" className="border border-success/30 bg-success-soft px-4 py-3 font-mono text-sm text-success">
           Profile saved. For you now uses it.
@@ -606,12 +634,12 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
       <div className="flex flex-col gap-4 border-y border-line py-4">
         {/* Which list */}
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <nav aria-label="Lists" className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <nav aria-label="Lists" className="grid grid-cols-5 gap-1 sm:flex">
           <Tab href={href({ view: "foryou", sort: f.sort, map: f.map }, {})} active={f.view === "foryou"}>
             For you
           </Tab>
           <Tab href={href({ view: "all", sort: f.sort, map: f.map }, {})} active={f.view === "all"}>
-            All jobs
+            All<span className="hidden sm:inline"> jobs</span>
           </Tab>
           <Tab href={href({ view: "saved", map: f.map }, {})} active={f.view === "saved"}>
             Saved{counts.saved ? <span className="opacity-70">{counts.saved}</span> : null}
@@ -623,12 +651,16 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
             Hidden{hiddenCount ? <span className="opacity-70">{hiddenCount}</span> : null}
           </Tab>
         </nav>
-        <ModeSwitch listHref={href(f, { map: false })} mapHref={href(f, { map: true })} map={Boolean(f.map)} />
+        <div className={marks ? "" : "hidden sm:block"}>
+          <ModeSwitch listHref={href(f, { map: false })} mapHref={href(f, { map: true })} map={Boolean(f.map)} />
+        </div>
         </div>
 
         {!marks ? (
           <FiltersShell
             activeCount={panelActive}
+            mode={<ModeSwitch listHref={href(f, { map: false })} mapHref={href(f, { map: true })} map={Boolean(f.map)} compact />}
+            resultLabel={`Show ${matching.length} role${matching.length === 1 ? "" : "s"}`}
             quick={
               <>
                 <Chip href={href(f, { since: f.since === "visit" ? undefined : "visit" })} active={f.since === "visit"}>
@@ -768,7 +800,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
       </div>
 
       {f.map && mapData ? (
-        <MapView f={f} data={mapData} lastRun={Boolean(lastRun)} baseHref={href(f, { state: undefined, city: undefined })} cityHref={(c) => href(f, { city: c })} jobList={jobList} />
+        <MapView f={f} data={mapData} lastRun={Boolean(lastRun)} baseHref={href(f, { state: undefined, city: undefined })} cityHref={(c) => href(f, { city: c })} jobList={jobList} moreHref={href(f, { show: (f.show ?? PAGE_SIZE) + PAGE_SIZE })} />
       ) : (
       groups.length === 0 ? (
         <EmptyState
@@ -813,7 +845,10 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
           }
         />
       ) : (
-        jobList(groups)
+        <>
+          {jobList(groups)}
+          <LoadMore shown={groups.length} total={matching.length} href={href(f, { show: (f.show ?? PAGE_SIZE) + PAGE_SIZE })} />
+        </>
       )
       )}
 

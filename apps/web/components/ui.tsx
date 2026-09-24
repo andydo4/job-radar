@@ -56,7 +56,7 @@ const TONES: Record<Tone, string> = {
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
-    <span className={cx("inline-flex items-center border px-2 py-0.5 font-mono text-xs whitespace-nowrap", TONES[tone], className)}>
+    <span className={cx("inline-flex max-w-full items-center border px-2 py-0.5 font-mono text-xs [overflow-wrap:anywhere]", TONES[tone], className)}>
       {children}
     </span>
   );
@@ -67,7 +67,7 @@ const URGENCY_TONE: Record<Urgency, Tone> = { none: "neutral", past: "neutral", 
 export function CountdownBadge({ days }: { days: number | null }) {
   const urgency = urgencyFor(days);
   return (
-    <Badge tone={URGENCY_TONE[urgency]} className="tabular">
+    <Badge tone={URGENCY_TONE[urgency]} className="tabular whitespace-nowrap">
       {urgency === "danger" && <span aria-hidden>!&nbsp;</span>}
       {countdownLabel(days)}
     </Badge>

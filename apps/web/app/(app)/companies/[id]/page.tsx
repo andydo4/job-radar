@@ -203,8 +203,8 @@ export default async function CompanyPage(props: PageProps<"/companies/[id]">) {
   const viewer = { profile, actions, newSince, companyPrefs };
 
   // Fetch all jobs for stats and the filtered set for display
-  const [{ groups: allGroups }, { groups: filteredGroups }] = await Promise.all([
-    getJobs(supabase, { view: "all", company: id }, viewer),
+  const [{ all: allGroups }, { groups: filteredGroups }] = await Promise.all([
+    getJobs(supabase, { view: "all", company: id }, viewer, 0),
     getJobs(supabase, { view: "all", company: id, kind, sort }, viewer),
   ]);
 

@@ -45,7 +45,7 @@ describe("role family", () => {
     ["Clinical Trial Associate", "pharma", "clinical"],
     ["Regulatory Affairs Associate", "pharma", "regulatory"],
     ["Bioinformatics Scientist", "biotech", "compbio"],
-    ["Software Engineer, Lab Automation", "tools", "engineering"],
+    ["Software Engineer, Lab Automation", "tools", "software"],
     ["Associate Consultant", "consulting", "consulting"],
     ["Analyst", "consulting", "consulting"],
     ["Recruiting Coordinator", "consulting", "other"],
@@ -160,8 +160,17 @@ describe("software roles at tech companies (Phase 3)", () => {
     expect(classifySeniority(title)).toBe(level);
   });
 
-  it("biotech companies are unchanged", () => {
-    expect(classifyRoleFamily("Software Engineer, Lab Automation", "tools")).toBe("engineering");
+  it("software jobs at biotech / pharma are Software too (so unticking Software hides them)", () => {
+    expect(classifyRoleFamily("Software Engineer, Lab Automation", "tools")).toBe("software");
+    expect(classifyRoleFamily("Data Engineer II", "pharma")).toBe("software");
+    expect(classifyRoleFamily("Full Stack Developer - Clinical Platforms", "pharma")).toBe("software");
+    expect(classifyRoleFamily("Salesforce Developer", "pharma")).toBe("software");
+  });
+  it("...but lab, plant and instrument engineers stay Engineering / Process", () => {
+    expect(classifyRoleFamily("Automation Engineer", "biotech")).toBe("engineering");
+    expect(classifyRoleFamily("Systems Engineer, Instrumentation", "tools")).toBe("engineering");
+    expect(classifyRoleFamily("Bioinformatics Scientist", "biotech")).toBe("compbio");
+    expect(classifyRoleFamily("Research Associate, Protein Engineering", "biotech")).toBe("research");
   });
 });
 

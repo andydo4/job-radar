@@ -39,6 +39,14 @@ function consultingOrOther(title: string, department?: string): RoleFamily {
 export const SOFTWARE_ROLE =
   /\b(software (engineer|developer|development engineer)\w*|swe\b|sde\b|developer\b|engineer(ing)?,? (new grad|early career|university grad|college grad)|forward[- ]deployed|deployment (strategist|engineer)|solutions? engineer|product engineer|design engineer|ux engineer|ui engineer|creative technologist|product designer|ux designer|full[- ]?stack|front[- ]?end|back[- ]?end|mobile engineer|ios engineer|android engineer|web engineer|platform engineer|infrastructure engineer|systems engineer|reliability engineer|sre\b|data engineer|machine learning engineer|ml engineer|ai engineer|applied ai engineer|research engineer|member of (the )?technical staff|mts\b|production engineer|security engineer|quant(itative)? developer|engineer\s*(i|1)\b)/i;
 
+/**
+ * Unmistakable software jobs at non-tech companies (pharma IT, lab software, data engineering).
+ * Narrower than SOFTWARE_ROLE: "Systems / Reliability / Production / Research Engineer" and
+ * "Engineer I" mean lab, plant or instrument work at a biotech, so they stay out.
+ */
+export const CLEAR_SOFTWARE =
+  /\b(software (engineer|developer|development engineer|architect)\w*|(full[- ]?stack|front[- ]?end|back[- ]?end|web|mobile|ios|android|cloud|devops|data|machine learning|ml|mlops|ai|site reliability) (engineer|developer)|(application|applications|salesforce|java|python|\.net) developer|swe\b|sde\b|sre\b|devops\b)/i;
+
 const FAMILY_RULES: [RoleFamily, RegExp][] = [
   ["compbio", /\b(bioinformatic\w*|computational (biolog\w*|chemist\w*|scien\w*)|machine learning scientist|data scien\w*|biostatistic\w*|statistical programmer|cheminformatic\w*)\b/i],
   ["regulatory", /\b(regulatory|pharmacovigilance|drug safety|medical writ\w*)\b/i],
@@ -57,6 +65,8 @@ export function classifyRoleFamily(title: string, segment: Segment, department?:
   // At consulting / VC firms, the business-facing roles *are* the job family.
   if (segment === "consulting") return consultingOrOther(title, department);
   if (segment === "vc") return "vc";
+  // Software jobs are their own type everywhere, so unticking "Software" removes them from biotech too.
+  if (CLEAR_SOFTWARE.test(title)) return "software";
   if (/\b(consult\w*|strategy (analyst|associate)|management consult\w*)\b/i.test(title)) return consultingOrOther(title, department);
   if (/\b(venture|investment (analyst|associate)|entrepreneur[- ]in[- ]residence|\beir\b)\b/i.test(title)) return "vc";
 

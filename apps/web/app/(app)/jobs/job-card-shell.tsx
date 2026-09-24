@@ -64,7 +64,7 @@ export function JobCardShell({
   }
 
   return (
-    <li className={`border-b border-line px-4 py-4 last:border-b-0 sm:px-6 ${closed ? "bg-muted/60" : ""}`}>
+    <li className={`min-w-0 border-b border-line px-4 py-4 [overflow-wrap:anywhere] last:border-b-0 sm:px-6 ${closed ? "bg-muted/60" : ""}`}>
       <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between @2xl:gap-6">
         <div className="min-w-0 flex-1">{children}</div>
         <div className="flex flex-col gap-2 @2xl:items-end">

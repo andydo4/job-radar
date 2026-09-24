@@ -84,3 +84,13 @@ describe("map URL params", () => {
     expect(validJobsQuery("view=all&mode=map&state=CA&city=South+San+Francisco")).toBe(true);
   });
 });
+
+import { careersUrl } from "../lib/careers";
+describe("careers links on company pages", () => {
+  it("builds each board's public URL", () => {
+    expect(careersUrl("workday", "nvidia|wd5|NVIDIAExternalCareerSite|new college grad")).toBe("https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite");
+    expect(careersUrl("lever", "palantir")).toBe("https://jobs.lever.co/palantir");
+    expect(careersUrl("careersite", "https://careers.abbvie.com/sitemap.xml")).toBe("https://careers.abbvie.com");
+    expect(careersUrl("workday", "broken")).toBeNull();
+  });
+});
