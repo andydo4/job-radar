@@ -65,10 +65,10 @@ export function JobCardShell({
 
   return (
     <li className={`border-b border-line px-4 py-4 last:border-b-0 sm:px-6 ${closed ? "bg-muted/60" : ""}`}>
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-6">
+      <div className="flex flex-col gap-3 @2xl:flex-row @2xl:items-start @2xl:justify-between @2xl:gap-6">
         <div className="min-w-0 flex-1">{children}</div>
-        <div className="flex flex-col gap-2 md:items-end">
-          <div className="flex flex-wrap items-center gap-2 md:justify-end">
+        <div className="flex flex-col gap-2 @2xl:items-end">
+          <div className="flex flex-wrap items-center gap-2 @2xl:justify-end">
             {closed ? (
               <span className="inline-flex h-10 items-center border border-line px-4 font-mono text-sm text-subtle">Closed</span>
             ) : (

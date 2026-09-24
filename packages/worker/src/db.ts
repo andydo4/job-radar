@@ -73,6 +73,8 @@ export interface JobInsertRow {
   degree_min: string | null;
   is_us: boolean | null;
   metro_tier: number | null;
+  states: string[];
+  places: string[];
   dedupe_key: string;
   is_backlog: boolean;
   first_seen_at: string;
@@ -107,7 +109,7 @@ export interface JobInsertRow {
  * Bump when details extraction improves: every open job below this version is re-processed
  * by backfillDetails() over the next few runs.
  */
-export const DETAILS_VERSION = 4; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type. 4: at-a-glance parsing
+export const DETAILS_VERSION = 5; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type. 4: at-a-glance parsing. 5: states/places for the map + non-US "…, DE" fix
 
 /** A saved job that still needs its details filled in. */
 export interface JobNeedingDetails {
@@ -156,6 +158,8 @@ export interface JobDetailsUpdate {
   country: string | null;
   is_us: boolean | null;
   metro_tier: number | null;
+  states: string[];
+  places: string[];
   degree_min: string | null;
   work_model: string | null;
   work_model_detail: string | null;
@@ -290,6 +294,8 @@ function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, 
     degree_min: j.degreeMin,
     is_us: j.isUS,
     metro_tier: j.metroTier,
+    states: j.states,
+    places: j.places,
     dedupe_key: j.dedupeKey,
     is_backlog: isBacklog,
     first_seen_at: firstSeenAt,
@@ -466,6 +472,8 @@ export async function backfillDetails(
         country: job.country ?? null,
         is_us: c.isUS,
         metro_tier: c.metroTier,
+        states: c.states,
+        places: c.places,
         degree_min: c.degreeMin,
         details_version: DETAILS_VERSION,
       };

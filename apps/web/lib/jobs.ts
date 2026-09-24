@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompanyPref, JobStatus } from "./me";
 import { allowedDegrees, maxExperience, qualify, type Profile } from "./profile";
 import { postedTime } from "./sort";
+import { inPlace, stateCounts, type StateCount } from "./map";
 
 export const FAMILIES = [
   ["research", "Research"],
@@ -74,6 +75,9 @@ export interface JobRow {
   clearance_required: boolean | null;
   housing: "provided" | "stipend" | "not_provided" | null;
   application_extras: string[] | null;
+  /** US state codes (+ "REMOTE") and "MA|Boston" places, for the map. */
+  states: string[];
+  places: string[];
   company: { name: string; segment: string } | null;
 }
 
@@ -100,12 +104,18 @@ export interface JobFilters {
   /** Internships & co-ops only, or everything else. */
   kind?: "intern" | "fulltime";
   sort?: SortKey;
+  /** Show the map instead of the list. */
+  map?: boolean;
+  /** Only roles in this state ("MA"), "REMOTE", or "NONE" (no state listed). */
+  state?: string;
+  /** ...and in this city of that state ("" = listings that name no city). */
+  city?: string;
 }
 
 export type SortKey = "new" | "company" | "pay" | "deadline";
 
 const COLUMNS =
-  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, term, start_date, end_date, dates_label, duration_text, deadline, intern_levels, grad_from, grad_to, work_model, work_model_detail, visa_sponsorship, travel, clearance_required, housing, application_extras, company:companies(name, segment)";
+  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, term, start_date, end_date, dates_label, duration_text, deadline, intern_levels, grad_from, grad_to, work_model, work_model_detail, visa_sponsorship, travel, clearance_required, housing, application_extras, states, places, company:companies(name, segment)";
 
 /** One role, possibly posted as several listings (one per city). */
 export interface JobGroup {
@@ -206,35 +216,78 @@ function annualMax(j: JobRow): number {
   return Number(j.salary_max) * (j.salary_period === "hour" ? 2080 : 1);
 }
 
+type Row = JobRow & { closed_at: string | null };
+
+/** The rows behind a list: your marked jobs, or everything open that matches the filters. */
+async function loadRows(supabase: SupabaseClient, opts: JobFilters, viewer: Viewer, columns: string, limit: number): Promise<Row[]> {
+  if (isMarkView(opts.view)) {
+    // Your saved / applied / hidden jobs, including ones that have since closed.
+    const ids = [...viewer.actions].filter(([, st]) => st === opts.view).map(([id]) => id);
+    if (!ids.length) return [];
+    let q = supabase.from("jobs").select(`${columns}, closed_at`).in("id", ids.slice(0, 1000)).order("first_seen_at", { ascending: false });
+    if (opts.family?.length) q = q.in("role_family", opts.family);
+    if (opts.company) q = q.eq("company_id", opts.company);
+    const { data, error } = await q;
+    if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+    return (data ?? []) as unknown as Row[];
+  }
+  // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
+  let q = applyFilters(supabase.from("jobs").select(columns), opts, viewer)
+    .order("is_backlog", { ascending: true })
+    .order("posted_at", { ascending: false, nullsFirst: false })
+    .order("first_seen_at", { ascending: false })
+    .limit(limit);
+  if (opts.company) q = q.eq("company_id", opts.company);
+  const { data, error } = await q;
+  if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+  return ((data ?? []) as unknown as JobRow[]).map((r) => ({ ...r, closed_at: null }));
+}
+
 export async function getJobs(
   supabase: SupabaseClient,
   opts: JobFilters,
   viewer: Viewer,
 ): Promise<{ groups: JobGroup[]; total: number; hiddenCount: number }> {
-  let rows: (JobRow & { closed_at: string | null })[];
-  if (isMarkView(opts.view)) {
-    // Your saved / applied / hidden jobs, including ones that have since closed.
-    const ids = [...viewer.actions].filter(([, st]) => st === opts.view).map(([id]) => id);
-    if (!ids.length) return { groups: [], total: 0, hiddenCount: countHidden(viewer) };
-    let q = supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", ids.slice(0, 1000)).order("first_seen_at", { ascending: false });
-    if (opts.family?.length) q = q.in("role_family", opts.family);
-    if (opts.company) q = q.eq("company_id", opts.company);
-    const { data, error } = await q;
-    if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
-    rows = (data ?? []) as unknown as typeof rows;
-  } else {
-    // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
-    let q = applyFilters(supabase.from("jobs").select(COLUMNS), opts, viewer)
-      .order("is_backlog", { ascending: true })
-      .order("posted_at", { ascending: false, nullsFirst: false })
-      .order("first_seen_at", { ascending: false })
-      .limit(1500);
-    if (opts.company) q = q.eq("company_id", opts.company);
-    const { data, error } = await q;
-    if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
-    rows = ((data ?? []) as unknown as JobRow[]).map((r) => ({ ...r, closed_at: null }));
-  }
+  const rows = await loadRows(supabase, opts, viewer, COLUMNS, 1500);
+  let groups = groupRows(rows, opts, viewer);
+  if (opts.state) groups = groups.filter((g) => inPlace(g, opts.state!, opts.city));
+  return { groups, total: rows.length, hiddenCount: countHidden(viewer) };
+}
 
+/** Just what grouping, For you, Fit, sorting and the map need (no requirements etc.), so many rows stay light. */
+const MAP_COLUMNS =
+  "id, company_id, dedupe_key, locations, remote, seniority, degree_min, experience_min_years, employment_type, metro_tier, is_backlog, first_seen_at, posted_at, posted_text, salary_max, salary_min, salary_period, term, start_date, end_date, dates_label, deadline, intern_levels, grad_from, grad_to, states, places, company:companies(name, segment)";
+
+/**
+ * The map: role counts per state under the current filters (ignoring the picked state), and the
+ * full cards for the roles in the picked state / city, in list order.
+ */
+export async function getMapJobs(
+  supabase: SupabaseClient,
+  opts: JobFilters,
+  viewer: Viewer,
+): Promise<{ counts: StateCount[]; all: JobGroup[]; selected: JobGroup[]; hiddenCount: number; truncated: boolean }> {
+  const LIMIT = 8000;
+  const light = await loadRows(supabase, opts, viewer, MAP_COLUMNS, LIMIT);
+  const all = groupRows(light, opts, viewer);
+  let selected: JobGroup[] = [];
+  if (opts.state) {
+    const picked = all.filter((g) => inPlace(g, opts.state!, opts.city));
+    // Swap in the full rows (requirements, at-a-glance fields...) for the cards.
+    const ids = picked.flatMap((g) => g.listings.map((l) => l.id));
+    const full = new Map<number, Row>();
+    for (let i = 0; i < ids.length; i += 500) {
+      const { data, error } = await supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", ids.slice(i, i + 500));
+      if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+      for (const r of (data ?? []) as unknown as Row[]) full.set(r.id, r);
+    }
+    selected = picked.map((g) => ({ ...g, lead: full.get(g.lead.id) ?? g.lead, listings: g.listings.map((l) => full.get(l.id) ?? l) }));
+  }
+  return { counts: stateCounts(all), all, selected, hiddenCount: countHidden(viewer), truncated: light.length >= LIMIT };
+}
+
+/** Rows -> roles (one per dedupe key), minus hidden / ineligible / off-fit ones, sorted. */
+function groupRows(rows: Row[], opts: JobFilters, viewer: Viewer): JobGroup[] {
   const groups = new Map<string, JobGroup>();
   const newCutoff = new Date(viewer.newSince).getTime();
   const rank = (st: JobStatus | null | undefined) => (st === "hidden" ? 3 : st === "applied" ? 2 : st === "saved" ? 1 : 0);
@@ -302,7 +355,7 @@ export async function getJobs(
     if (opts.sort === "deadline") return deadlineKey(a).localeCompare(deadlineKey(b)) || newest(a, b);
     return newest(a, b);
   });
-  return { groups: groups_, total: rows.length, hiddenCount: countHidden(viewer) };
+  return groups_;
 }
 
 /** Today's date in US Eastern time, "YYYY-MM-DD". */

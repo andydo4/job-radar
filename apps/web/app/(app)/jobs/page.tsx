@@ -17,6 +17,7 @@ import {
   getCompanyCounts,
   getJobs,
   getLastRun,
+  getMapJobs,
   isMarkView,
   postedLabel,
   salaryLabel,
@@ -36,6 +37,8 @@ import { FiltersShell, SortSelect } from "./filters-shell";
 import { JobCardShell } from "./job-card-shell";
 import { JobDetails } from "./job-details";
 import { RememberFilters } from "./remember-filters";
+import { UsMap } from "./us-map";
+import { NO_STATE, REMOTE, cityCounts, parseCity, parseState, placeName, type StateCount } from "@/lib/map";
 import { requireUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -63,6 +66,9 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): JobFil
     fit: one("fit") === "likely" || one("fit") === "ok" ? (one("fit") as "likely" | "ok") : undefined,
     kind: one("kind") === "intern" || one("kind") === "fulltime" ? (one("kind") as "intern" | "fulltime") : undefined,
     sort: (["company", "pay", "deadline"] as const).find((k) => k === one("sort")) as SortKey | undefined,
+    map: one("mode") === "map",
+    state: parseState(one("state")),
+    city: parseState(one("state")) ? parseCity(one("city")) ?? (one("city") === "" ? "" : undefined) : undefined,
   };
 }
 
@@ -72,6 +78,7 @@ function href(f: JobFilters, change: Partial<JobFilters>) {
   const p = new URLSearchParams();
   // Always explicit, so a bare /jobs means "bring back my last filters".
   p.set("view", n.view);
+  if (n.map) p.set("mode", "map");
   if (n.since) p.set("since", n.since);
   if (n.fit) p.set("fit", n.fit);
   if (n.starred) p.set("starred", "1");
@@ -83,6 +90,8 @@ function href(f: JobFilters, change: Partial<JobFilters>) {
   if (n.noContract) p.set("contract", "hide");
   if (n.company) p.set("company", n.company);
   if (n.sort && n.sort !== "new") p.set("sort", n.sort);
+  if (n.state) p.set("state", n.state);
+  if (n.state && n.city !== undefined) p.set("city", n.city);
   const s = p.toString();
   return s ? `/jobs?${s}` : "/jobs";
 }
@@ -132,6 +141,28 @@ function Tab({ href, active, children }: { href: string; active: boolean; childr
     >
       {children}
     </Link>
+  );
+}
+
+/** List / Map switch; the choice is part of the URL, so it's remembered like the filters. */
+function ModeSwitch({ listHref, mapHref, map }: { listHref: string; mapHref: string; map: boolean }) {
+  const cls = (on: boolean) =>
+    `inline-flex h-8 items-center gap-1.5 px-3 font-mono text-xs transition-colors duration-100 ${on ? "bg-brand text-white" : "text-body hover:bg-muted"}`;
+  return (
+    <div role="group" aria-label="Show jobs as" className="inline-flex shrink-0 self-start border border-line-strong bg-surface p-0.5 sm:self-auto">
+      <Link href={listHref} scroll={false} aria-current={!map ? "true" : undefined} className={cls(!map)}>
+        <svg aria-hidden viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M2 4h12M2 8h12M2 12h12" strokeLinecap="square" />
+        </svg>
+        List
+      </Link>
+      <Link href={mapHref} scroll={false} aria-current={map ? "true" : undefined} className={cls(map)}>
+        <svg aria-hidden viewBox="0 0 16 16" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="1.5">
+          <path d="M1.5 3.5 5.5 2l5 1.5 4-1.5v10.5l-4 1.5-5-1.5-4 1.5zM5.5 2v10.5M10.5 3.5V14" strokeLinejoin="round" />
+        </svg>
+        Map
+      </Link>
+    </div>
   );
 }
 
@@ -289,6 +320,143 @@ function JobCard({
 }
 
 // ---------------------------------------------------------------------------
+// Map mode
+// ---------------------------------------------------------------------------
+
+function PlaceTile({ href, active, label, count }: { href: string; active: boolean; label: string; count: number }) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-current={active ? "true" : undefined}
+      className={`inline-flex h-9 items-center gap-2 border px-3 font-mono text-xs transition-colors duration-100 ${
+        active ? "border-heading bg-muted text-heading" : "border-line bg-surface text-body hover:border-line-strong hover:bg-muted"
+      }`}
+    >
+      {label}
+      <span className="font-semibold text-heading">{count}</span>
+    </Link>
+  );
+}
+
+function MapView({
+  f,
+  data,
+  lastRun,
+  baseHref,
+  cityHref,
+  jobList,
+}: {
+  f: JobFilters;
+  data: { counts: StateCount[]; all: JobGroup[]; selected: JobGroup[]; truncated: boolean };
+  lastRun: boolean;
+  /** This page without a picked state. */
+  baseHref: string;
+  cityHref: (city: string | undefined) => string;
+  jobList: (groups: JobGroup[]) => React.ReactNode;
+}) {
+  const byCode = new Map(data.counts.map((c) => [c.code, c]));
+  const states = data.counts.filter((c) => c.code !== REMOTE && c.code !== NO_STATE);
+  const stateHref = (code: string) => (code === f.state ? baseHref : `${baseHref}&state=${code}`);
+  const sel = f.state ? (byCode.get(f.state) ?? { code: f.state, roles: 0, fresh: 0, top: [] }) : null;
+  const cities = f.state && f.state !== REMOTE && f.state !== NO_STATE ? cityCounts(data.all, f.state) : [];
+  const max = states[0]?.roles ?? 0;
+  const shown = f.city !== undefined ? data.selected.length : sel?.roles ?? 0;
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] xl:items-start">
+      <section aria-label="Map" className="flex flex-col gap-4 border border-line bg-surface p-4 sm:p-5 xl:sticky xl:top-4">
+        <p className="font-mono text-xs text-subtle">
+          <span className="font-semibold text-heading">{data.all.length}</span> role{data.all.length === 1 ? "" : "s"} in{" "}
+          <span className="font-semibold text-heading">{states.length}</span> state{states.length === 1 ? "" : "s"}
+          {data.all.length > 0 && " · a role in several states counts in each"}
+        </p>
+        <UsMap counts={data.counts} selected={f.state ?? null} baseHref={baseHref} />
+        {(byCode.get(REMOTE) || byCode.get(NO_STATE)) && (
+          <div className="flex flex-wrap gap-2">
+            {byCode.get(REMOTE) && <PlaceTile href={stateHref(REMOTE)} active={f.state === REMOTE} label="Remote (US)" count={byCode.get(REMOTE)!.roles} />}
+            {byCode.get(NO_STATE) && <PlaceTile href={stateHref(NO_STATE)} active={f.state === NO_STATE} label="No state listed" count={byCode.get(NO_STATE)!.roles} />}
+          </div>
+        )}
+        {data.truncated && <p className="font-mono text-[11px] text-subtle">Counts use the newest 8,000 listings. Add a filter to narrow it down.</p>}
+      </section>
+
+      <div className="flex min-w-0 flex-col gap-4">
+        {!sel ? (
+          states.length === 0 ? (
+            <EmptyState
+              title={lastRun ? "No matching jobs" : "Waiting for the first check"}
+              body={lastRun ? "Nothing matches these filters anywhere in the US. Try removing one." : "Once the job checker runs, the map fills in."}
+            />
+          ) : (
+            <section aria-label="Top states" className="border border-line bg-surface">
+              <h2 className="border-b border-line px-4 py-3 font-mono text-xs font-medium tracking-[0.04em] text-subtle uppercase sm:px-5">
+                Top states · pick one on the map
+              </h2>
+              <ol>
+                {states.slice(0, 12).map((c, i) => (
+                  <li key={c.code} className="border-b border-line last:border-b-0">
+                    <Link href={stateHref(c.code)} scroll={false} className="flex items-center gap-3 px-4 py-2.5 font-mono text-sm hover:bg-muted sm:px-5">
+                      <span className="w-5 text-right text-xs text-subtle">{i + 1}</span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-heading">{placeName(c.code)}</span>
+                        <span className="mt-1 block h-1 bg-muted">
+                          <span className="block h-full bg-brand" style={{ width: `${Math.max(3, (c.roles / max) * 100)}%` }} />
+                        </span>
+                      </span>
+                      <span className="text-right">
+                        <span className="font-semibold text-heading">{c.roles}</span>
+                        {c.fresh > 0 && <span className="ml-1.5 bg-lime px-1 text-[11px] text-on-lime">{c.fresh} new</span>}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ol>
+            </section>
+          )
+        ) : (
+          <>
+            <div className="flex flex-col gap-3 border border-line bg-surface p-4 sm:p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h2 className="font-serif text-2xl leading-tight text-heading">{placeName(sel.code)}</h2>
+                  <p className="mt-1 font-mono text-xs text-subtle">
+                    <span className="font-semibold text-heading">{sel.roles}</span> role{sel.roles === 1 ? "" : "s"}
+                    {sel.fresh > 0 && <span className="text-link"> · {sel.fresh} new since your last visit</span>}
+                    {sel.top.length > 0 && <> · most at {sel.top.join(", ")}</>}
+                  </p>
+                </div>
+                <Link href={baseHref} scroll={false} aria-label="Clear the picked state" className="grid size-9 shrink-0 place-items-center border border-line font-mono text-sm text-subtle hover:border-line-strong hover:text-heading">
+                  ✕
+                </Link>
+              </div>
+              {cities.length > 1 && (
+                <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0 sm:pb-0" aria-label="Cities">
+                  <Chip href={cityHref(undefined)} active={f.city === undefined}>
+                    All
+                  </Chip>
+                  {cities.slice(0, 10).map((c) => (
+                    <Chip key={c.city || "-"} href={cityHref(c.city)} active={f.city === c.city}>
+                      {c.city || "No city listed"}
+                      <span className="opacity-70">{c.roles}</span>
+                    </Chip>
+                  ))}
+                </div>
+              )}
+            </div>
+            {shown === 0 || data.selected.length === 0 ? (
+              <EmptyState title={`No matching roles in ${placeName(sel.code)}`} body="Nothing here matches these filters. Pick another state, or remove a filter." />
+            ) : (
+              jobList(data.selected)
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -318,15 +486,19 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
     getCompanyPrefs(supabase),
   ]);
   const viewer = { profile, actions, newSince, companyPrefs };
-  const [{ groups, hiddenCount }, lastRun, companyCount, companies] = await Promise.all([
-    getJobs(supabase, f, viewer),
+  const [jobs, lastRun, companyCount, companies] = await Promise.all([
+    f.map ? getMapJobs(supabase, f, viewer) : getJobs(supabase, f, viewer),
     getLastRun(supabase),
     getCompanyCount(supabase),
     getCompanyCounts(supabase, f, viewer),
   ]);
+  const mapData = "counts" in jobs ? jobs : null;
+  // The cards shown: the list, or on the map the roles in the picked state.
+  const groups = mapData ? mapData.selected : (jobs as { groups: JobGroup[] }).groups;
+  const hiddenCount = jobs.hiddenCount;
   const listHref = href(f, {});
   const baseQuery = href(f, { company: undefined }).replace(/^\/jobs\??/, "");
-  const newCount = groups.filter((g) => g.isNew).length;
+  const newCount = (mapData ? mapData.all : groups).filter((g) => g.isNew).length;
   const marks = isMarkView(f.view);
   const counts = { saved: 0, applied: 0 };
   for (const st of actions.values()) if (st === "saved" || st === "applied") counts[st]++;
@@ -351,7 +523,35 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   if (f.degree) active.push({ label: f.degree === "bs" ? "Bachelor's is enough" : "Master's is enough", href: href(f, { degree: undefined }) });
   if (f.pay) active.push({ label: "Pay listed", href: href(f, { pay: false }) });
   if (f.noContract) active.push({ label: "No contract roles", href: href(f, { noContract: false }) });
-  const cleared = href({ view: f.view, sort: f.sort }, {});
+  if (f.state && !f.map) active.push({ label: `📍 ${placeName(f.state)}`, href: href(f, { state: undefined, city: undefined }) });
+  if (f.state && f.city !== undefined && !f.map) active.push({ label: f.city || "No city listed", href: href(f, { city: undefined }) });
+  const cleared = href({ view: f.view, sort: f.sort, map: f.map }, {});
+
+  const jobList = (groups: JobGroup[]) => (
+    <section aria-label="Jobs" className="@container border border-line bg-surface">
+      <ul>
+        {groups.map((g, i) => {
+          const name = g.lead.company?.name ?? g.lead.company_id;
+          const prev = groups[i - 1];
+          const header = f.sort === "company" && !marks && (!prev || (prev.lead.company?.name ?? prev.lead.company_id) !== name);
+          const count = header ? groups.filter((x) => x.lead.company_id === g.lead.company_id).length : 0;
+          return (
+            <Fragment key={g.key}>
+              {header && (
+                <li className="flex items-baseline justify-between border-b border-line bg-muted px-4 py-2 sm:px-6">
+                  <span className="font-mono text-sm font-semibold text-heading">{name}</span>
+                  <span className="font-mono text-xs text-subtle">
+                    {count} role{count === 1 ? "" : "s"}
+                  </span>
+                </li>
+              )}
+              <JobCard g={g} listHref={listHref} profile={profile} hiddenView={f.view === "hidden"} starred={pref(g.lead.company_id) === "star"} />
+            </Fragment>
+          );
+        })}
+      </ul>
+    </section>
+  );
 
   const sinceText = new Date(newSince).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 
@@ -405,23 +605,26 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
 
       <div className="flex flex-col gap-4 border-y border-line py-4">
         {/* Which list */}
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
         <nav aria-label="Lists" className="-mx-4 flex gap-1 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-          <Tab href={href({ view: "foryou", sort: f.sort }, {})} active={f.view === "foryou"}>
+          <Tab href={href({ view: "foryou", sort: f.sort, map: f.map }, {})} active={f.view === "foryou"}>
             For you
           </Tab>
-          <Tab href={href({ view: "all", sort: f.sort }, {})} active={f.view === "all"}>
+          <Tab href={href({ view: "all", sort: f.sort, map: f.map }, {})} active={f.view === "all"}>
             All jobs
           </Tab>
-          <Tab href={href({ view: "saved" }, {})} active={f.view === "saved"}>
+          <Tab href={href({ view: "saved", map: f.map }, {})} active={f.view === "saved"}>
             Saved{counts.saved ? <span className="opacity-70">{counts.saved}</span> : null}
           </Tab>
-          <Tab href={href({ view: "applied" }, {})} active={f.view === "applied"}>
+          <Tab href={href({ view: "applied", map: f.map }, {})} active={f.view === "applied"}>
             Applied{counts.applied ? <span className="opacity-70">{counts.applied}</span> : null}
           </Tab>
-          <Tab href={href({ view: "hidden" }, {})} active={f.view === "hidden"}>
+          <Tab href={href({ view: "hidden", map: f.map }, {})} active={f.view === "hidden"}>
             Hidden{hiddenCount ? <span className="opacity-70">{hiddenCount}</span> : null}
           </Tab>
         </nav>
+        <ModeSwitch listHref={href(f, { map: false })} mapHref={href(f, { map: true })} map={Boolean(f.map)} />
+        </div>
 
         {!marks ? (
           <FiltersShell
@@ -564,7 +767,10 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
         ) : null}
       </div>
 
-      {groups.length === 0 ? (
+      {f.map && mapData ? (
+        <MapView f={f} data={mapData} lastRun={Boolean(lastRun)} baseHref={href(f, { state: undefined, city: undefined })} cityHref={(c) => href(f, { city: c })} jobList={jobList} />
+      ) : (
+      groups.length === 0 ? (
         <EmptyState
           title={
             !lastRun
@@ -607,29 +813,8 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
           }
         />
       ) : (
-        <section aria-label="Jobs" className="border border-line bg-surface">
-          <ul>
-            {groups.map((g, i) => {
-              const name = g.lead.company?.name ?? g.lead.company_id;
-              const prev = groups[i - 1];
-              const header = f.sort === "company" && !marks && (!prev || (prev.lead.company?.name ?? prev.lead.company_id) !== name);
-              const count = header ? groups.filter((x) => x.lead.company_id === g.lead.company_id).length : 0;
-              return (
-                <Fragment key={g.key}>
-                  {header && (
-                    <li className="flex items-baseline justify-between border-b border-line bg-muted px-4 py-2 sm:px-6">
-                      <span className="font-mono text-sm font-semibold text-heading">{name}</span>
-                      <span className="font-mono text-xs text-subtle">
-                        {count} role{count === 1 ? "" : "s"}
-                      </span>
-                    </li>
-                  )}
-                  <JobCard g={g} listHref={listHref} profile={profile} hiddenView={f.view === "hidden"} starred={pref(g.lead.company_id) === "star"} />
-                </Fragment>
-              );
-            })}
-          </ul>
-        </section>
+        jobList(groups)
+      )
       )}
 
       <p className="font-mono text-xs leading-5 text-subtle">

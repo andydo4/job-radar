@@ -21,6 +21,18 @@
   --warning-soft: #fffaeb;
   --danger: #c81e1e;
   --danger-soft: #fff1f2;
+  /* Jobs map: one blue, light to dark = fewer to more roles; ink = count text on that step. */
+  --map-0: #edeffa;
+  --map-1: #dde1ff;
+  --map-2: #b0b8ff;
+  --map-3: #7580ff;
+  --map-4: #3a47ff;
+  --map-5: #0000f2;
+  --map-ink-1: #0a0a23;
+  --map-ink-2: #0a0a23;
+  --map-ink-3: #0a0a23;
+  --map-ink-4: #ffffff;
+  --map-ink-5: #ffffff;
   color-scheme: light;
 }
 
@@ -45,6 +57,17 @@
     --warning-soft: #2a1f08;
     --danger: #f87171;
     --danger-soft: #2a0e12;
+    --map-0: #171736;
+    --map-1: #1f2366;
+    --map-2: #2b35a8;
+    --map-3: #4652e8;
+    --map-4: #7f88ff;
+    --map-5: #c3c8ff;
+    --map-ink-1: #f4f5fb;
+    --map-ink-2: #f4f5fb;
+    --map-ink-3: #f4f5fb;
+    --map-ink-4: #0a0a23;
+    --map-ink-5: #0a0a23;
     color-scheme: dark;
   }
 }
@@ -68,6 +91,17 @@
   --warning-soft: #2a1f08;
   --danger: #f87171;
   --danger-soft: #2a0e12;
+  --map-0: #171736;
+  --map-1: #1f2366;
+  --map-2: #2b35a8;
+  --map-3: #4652e8;
+  --map-4: #7f88ff;
+  --map-5: #c3c8ff;
+  --map-ink-1: #f4f5fb;
+  --map-ink-2: #f4f5fb;
+  --map-ink-3: #f4f5fb;
+  --map-ink-4: #0a0a23;
+  --map-ink-5: #0a0a23;
   color-scheme: dark;
 }
 

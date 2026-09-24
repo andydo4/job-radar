@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   classifyDegreeMin,
+  placesOf,
+  placeKeys,
+  statesOf,
+  stateOf,
   classifyLocation,
   classifyRoleFamily,
   classifySeniority,
@@ -126,7 +130,7 @@ describe("location with an ATS country field", () => {
 describe("US-only default filter", () => {
   const base: Omit<ClassifiedJob, "isUS" | "metroTier"> = {
     companyId: "x", externalId: "1", title: "Associate Scientist", url: "u", locations: [], remote: false, postedAt: null,
-    roleFamily: "research", seniority: "entry", degreeMin: null, dedupeKey: "x::a",
+    roleFamily: "research", seniority: "entry", degreeMin: null, dedupeKey: "x::a", states: [], places: [],
   };
   it("keeps US jobs and hides non-US and unknown ones, with a reason", () => {
     expect(hiddenReason({ ...base, isUS: true, metroTier: 1 }, DEFAULT_FILTER)).toBeNull();
@@ -158,5 +162,36 @@ describe("software roles at tech companies (Phase 3)", () => {
 
   it("biotech companies are unchanged", () => {
     expect(classifyRoleFamily("Software Engineer, Lab Automation", "tools")).toBe("engineering");
+  });
+});
+
+describe("places for the map", () => {
+  it.each([
+    [["Boston, MA"], false, ["MA|Boston"]],
+    [["Cambridge, Massachusetts, United States"], false, ["MA|Cambridge"]],
+    [["US-MA-Waltham"], false, ["MA|Waltham"]],
+    [["USA - New Jersey - Rahway"], false, ["NJ|Rahway"]],
+    [["South San Francisco, CA 94080"], false, ["CA|South San Francisco"]],
+    [["Boston, MA; New York, NY"], false, ["MA|Boston", "NY|New York"]],
+    [["San Francisco, CA", "Remote - US"], true, ["CA|San Francisco", "REMOTE|"]],
+    [["Remote"], true, ["REMOTE|"]],
+    [[], true, ["REMOTE|"]],
+    [["New York City"], false, ["NY|New York"]],
+    [["Newark, DE"], false, ["DE|Newark"]],
+    [["Grenzach-Wyhlen, Baden-Württemberg, DE"], false, []],
+    [["3 Locations"], false, []],
+  ] as const)("%j remote=%s -> %j", (locs, remote, want) => {
+    expect(placeKeys(placesOf([...locs], remote))).toEqual(want);
+  });
+
+  it("states are unique and sorted", () => {
+    expect(statesOf(placesOf(["Boston, MA", "Cambridge, MA", "Remote"], true))).toEqual(["MA", "REMOTE"]);
+  });
+
+  it("a German Bayer listing is not Delaware", () => {
+    expect(stateOf("Grenzach-Wyhlen, Baden-Württemberg, DE")).toBeNull();
+    expect(classifyLocation(["Grenzach-Wyhlen, Baden-Württemberg, DE"], false, "DE")).toEqual({ isUS: false, metroTier: null });
+    expect(classifyLocation(["Whippany, New Jersey, US"], false, "US").isUS).toBe(true);
+    expect(stateOf("Wilmington, DE")).toBe("DE");
   });
 });

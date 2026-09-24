@@ -323,7 +323,7 @@ export default async function CompanyPage(props: PageProps<"/companies/[id]">) {
           }
         />
       ) : (
-        <section aria-label={`${co.name} jobs`} className="border border-line bg-surface">
+        <section aria-label={`${co.name} jobs`} className="@container border border-line bg-surface">
           <ul>
             {families.map(([fam, fGroups]) => (
               <Fragment key={fam}>

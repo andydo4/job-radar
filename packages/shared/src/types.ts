@@ -91,6 +91,10 @@ export interface Classification {
   /** true = US, false = clearly outside US, null = can't tell (e.g. Workday "3 Locations"). */
   isUS: boolean | null;
   dedupeKey: string;
+  /** US state codes (plus "REMOTE") the job is in; empty when unknown or outside the US. */
+  states: string[];
+  /** "MA|Boston" per place, for the map's city breakdown. */
+  places: string[];
 }
 
 export type ClassifiedJob = NormalizedJob & Classification;

@@ -139,8 +139,16 @@ const TIER1_CITIES =
 const NON_US =
   /\b(canada|toronto|montreal|vancouver|ontario|quebec|united kingdom|\buk\b|england|london|oxford|scotland|ireland|dublin|germany|berlin|munich|france|paris|switzerland|basel|zurich|geneva|netherlands|amsterdam|leiden|belgium|brussels|denmark|copenhagen|sweden|stockholm|norway|finland|spain|madrid|barcelona|italy|milan|poland|warsaw|austria|vienna|israel|tel aviv|india|bangalore|bengaluru|hyderabad|mumbai|pune|china|shanghai|beijing|suzhou|hong kong|japan|tokyo|korea|seoul|singapore|taiwan|australia|sydney|melbourne|new zealand|mexico|méxico|chihuahua|guadalajara|monterrey|tijuana|brazil|brasil|são paulo|sao paulo|argentina|buenos aires|colombia|bogot[aá]|chile|santiago|peru|lima|costa rica|south africa|egypt|saudi|dubai|uae|turkey|istanbul|greece|portugal|lisbon|czech|prague|hungary|budapest|romania|bucharest|emea|apac|latam|europe)\b/i;
 
+/** "Grenzach-Wyhlen, Baden-Württemberg, DE": a trailing 2-letter code after 2+ parts is a country, not a state. */
+function foreignCountryCode(loc: string): boolean {
+  const parts = loc.split(",").map((p) => p.trim());
+  const last = parts[parts.length - 1] ?? "";
+  return parts.length >= 3 && /^[A-Z]{2}$/.test(last) && last !== "US";
+}
+
 /** Returns the US state code for one location string, or null if none found. */
 export function stateOf(loc: string): string | null {
+  if (foreignCountryCode(loc)) return null;
   // "Boston, MA", "Boston, MA, US", "US-MA-Boston", "Andover, Massachusetts"
   const abbr = loc.match(/(?:,\s*|\bUS-|\bUSA?\s*-\s*)([A-Z]{2})\b/);
   if (abbr && abbr[1] && abbr[1] in STATES) return abbr[1];
@@ -208,6 +216,118 @@ export function classifyLocation(
 }
 
 // ---------------------------------------------------------------------------
+// Location -> places (state + city) for the map
+// ---------------------------------------------------------------------------
+
+export const REMOTE_STATE = "REMOTE";
+
+/** Cities often written without a state. */
+const CITY_STATE: [RegExp, string, string][] = [
+  [/\bboston\b/i, "MA", "Boston"],
+  [/\bcambridge\b/i, "MA", "Cambridge"],
+  [/\b(new york city|nyc|manhattan|new york)\b/i, "NY", "New York"],
+  [/\bbrooklyn\b/i, "NY", "Brooklyn"],
+  [/\b(south )?san francisco\b/i, "CA", ""],
+  [/\b(bay area|silicon valley)\b/i, "CA", "Bay Area"],
+  [/\bpalo alto\b/i, "CA", "Palo Alto"],
+  [/\bmountain view\b/i, "CA", "Mountain View"],
+  [/\bsan jose\b/i, "CA", "San Jose"],
+  [/\bsan diego\b/i, "CA", "San Diego"],
+  [/\blos angeles\b/i, "CA", "Los Angeles"],
+  [/\bseattle\b/i, "WA", "Seattle"],
+  [/\bchicago\b/i, "IL", "Chicago"],
+  [/\baustin\b/i, "TX", "Austin"],
+  [/\bdenver\b/i, "CO", "Denver"],
+  [/\batlanta\b/i, "GA", "Atlanta"],
+  [/\bwashington,? d\.?c\.?\b/i, "DC", "Washington"],
+];
+
+const US_WORD = /^(us|usa|u\.s\.a?\.?|united states( of america)?)$/i;
+const ABBR = new Set(Object.keys(STATES));
+const NAME_TO_CODE = new Map(Object.entries(STATES).map(([c, n]) => [n, c]));
+
+function codeOf(part: string): string | null {
+  const t = part.trim();
+  if (/^[A-Z]{2}$/.test(t) && ABBR.has(t)) return t;
+  return NAME_TO_CODE.get(t.toLowerCase()) ?? null;
+}
+
+function cleanCity(c: string): string {
+  return c
+    .replace(/\b(greater|metro(politan)?( area)?|area|hybrid|on-?site|remote|office|hq)\b/gi, " ")
+    .replace(/[()]/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s\-–—,]+|[\s\-–—,]+$/g, "")
+    .trim();
+}
+
+export interface Place {
+  state: string; // 2-letter code or REMOTE
+  city: string | null;
+}
+
+/** One location chunk ("Boston, MA", "US-MA-Cambridge", "USA - Massachusetts - Waltham", "Remote - US"). */
+function placeOfChunk(chunk: string): Place | null {
+  const loc = chunk.trim();
+  if (!loc || foreignCountryCode(loc)) return null;
+
+  // "US-MA-Boston" / "USA - MA - Boston" / "USA - Massachusetts - Boston"
+  const dashed = loc.match(/^\s*(?:US|USA|United States)\s*-\s*([A-Za-z .]+?)\s*-\s*(.+)$/i);
+  if (dashed) {
+    const code = codeOf(dashed[1]!);
+    if (code) return { state: code, city: cleanCity(dashed[2]!) || null };
+  }
+
+  // Comma form: "City, ST", "City, State, US", "City, ST 02139"
+  const parts = loc.split(",").map((p) => p.trim().replace(/\s+\d{5}(-\d{4})?$/, "")).filter(Boolean);
+  while (parts.length > 1 && US_WORD.test(parts[parts.length - 1]!)) parts.pop();
+  if (parts.length >= 2) {
+    const code = codeOf(parts[parts.length - 1]!);
+    if (code) return { state: code, city: cleanCity(parts[parts.length - 2]!) || null };
+  }
+
+  const state = stateOf(loc);
+  const city = CITY_STATE.find(([re]) => re.test(loc));
+  if (state) {
+    const cityName = city && city[1] === state ? city[2] || cleanCity(loc.match(city[0])![0]) : null;
+    return { state, city: cityName || null };
+  }
+  if (/\bremote\b/i.test(loc)) return { state: REMOTE_STATE, city: null };
+  if (city && !NON_US.test(loc)) {
+    const name = city[2] || cleanCity(loc.match(city[0])![0]).replace(/\b\w/g, (m) => m.toUpperCase());
+    return { state: city[1], city: name };
+  }
+  return null;
+}
+
+/** Every US place a job lists. A job in several states counts in each. */
+export function placesOf(locations: string[], remote: boolean): Place[] {
+  const out: Place[] = [];
+  const seen = new Set<string>();
+  for (const loc of locations) {
+    for (const chunk of loc.split(/;|\s\|\s|\s+or\s+|\n/i)) {
+      const p = placeOfChunk(chunk);
+      if (!p) continue;
+      const k = `${p.state}|${p.city ?? ""}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(p);
+    }
+  }
+  if (remote && !out.some((p) => p.state === REMOTE_STATE) && out.length === 0) out.push({ state: REMOTE_STATE, city: null });
+  return out;
+}
+
+/** "MA|Boston" strings (city may be empty), stored on jobs.places for the map's city breakdown. */
+export function placeKeys(places: Place[]): string[] {
+  return places.map((p) => `${p.state}|${p.city ?? ""}`);
+}
+
+export function statesOf(places: Place[]): string[] {
+  return [...new Set(places.map((p) => p.state))].sort();
+}
+
+// ---------------------------------------------------------------------------
 // Dedupe key: one role posted in many cities -> one group
 // ---------------------------------------------------------------------------
 
@@ -232,7 +352,10 @@ export function dedupeKey(companyId: string, title: string): string {
 
 export function classifyJob(job: NormalizedJob, company: Company): Classification {
   const { isUS, metroTier } = classifyLocation(job.locations, job.remote, job.country);
+  const places = isUS === false ? [] : placesOf(job.locations, job.remote);
   return {
+    states: statesOf(places),
+    places: placeKeys(places),
     roleFamily: classifyRoleFamily(job.title, company.segment, job.department),
     seniority: classifySeniority(job.title),
     degreeMin: classifyDegreeMin(job.descriptionText),
