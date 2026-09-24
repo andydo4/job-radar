@@ -9,10 +9,10 @@ const TABS = [
   { href: "/settings", label: "Settings", soon: false },
 ];
 
-export function NavTabs() {
+export function NavTabs({ inline = false }: { inline?: boolean }) {
   const path = usePathname();
   return (
-    <nav aria-label="Main" className="-mb-px flex gap-1 overflow-x-auto">
+    <nav aria-label="Main" className={inline ? "flex h-full gap-1" : "-mb-px flex gap-1 overflow-x-auto"}>
       {TABS.map((t) => {
         const active = path === t.href || path.startsWith(`${t.href}/`);
         return (
@@ -20,7 +20,7 @@ export function NavTabs() {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`flex h-11 items-center gap-2 border-b-2 px-3 font-mono text-sm whitespace-nowrap transition-colors duration-100 ${
+            className={`flex ${inline ? "h-full" : "h-11"} items-center gap-2 border-b-2 px-3 font-mono text-sm whitespace-nowrap transition-colors duration-100 ${
               active ? "border-brand font-medium text-link" : "border-transparent text-subtle hover:text-heading"
             }`}
           >

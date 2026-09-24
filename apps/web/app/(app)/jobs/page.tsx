@@ -41,6 +41,7 @@ import { RememberFilters } from "./remember-filters";
 import { UsMap } from "./us-map";
 import { NO_STATE, REMOTE, cityCounts, parseCity, parseState, placeName, type StateCount } from "@/lib/map";
 import { requireUser } from "@/lib/supabase/server";
+import { newestListing } from "@/lib/sort";
 
 export const metadata: Metadata = { title: "Jobs" };
 
@@ -223,7 +224,10 @@ function JobCard({
   const pay = salaryLabel(j);
   const timing = timingLabel(j);
   const deadline = deadlineInfo(j.deadline);
-  const posted = postedLabel(j);
+  // Label the role by its newest listing, so it matches "Newest posted" (a new city can re-open an old role).
+  const newest = newestListing(g);
+  const posted = postedLabel(newest);
+  const newCity = g.listings.length > 1 && newest.id !== j.id && newest.locations[0] ? ` (${newest.locations[0]})` : "";
   const exp = experienceLabel(j.experience_min_years);
   const type = j.employment_type && j.employment_type !== "full_time" ? EMPLOYMENT_LABEL[j.employment_type] : null;
   const q = qualify(profile, j);
@@ -272,7 +276,10 @@ function JobCard({
           </Link>
         </span>
         <span aria-hidden>·</span>
-        <span title={`Primer found it ${timeAgo(j.first_seen_at)}`}>{posted ?? `found ${timeAgo(j.first_seen_at)}`}</span>
+        <span title={`Primer found it ${timeAgo(newest.first_seen_at)}`}>
+          {posted ?? `found ${timeAgo(newest.first_seen_at)}`}
+          {newCity}
+        </span>
       </div>
       <Link href={page} className="mt-1 block font-mono text-[15px] leading-6 font-semibold text-heading hover:text-link">
         {j.title}

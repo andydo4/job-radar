@@ -22,3 +22,13 @@ describe("postedTime (Newest sort)", () => {
     expect(postedTime({ listings: [l(null, "2026-09-20T00:00:00Z", true), l("2026-09-22T00:00:00Z", "2026-09-22T01:00:00Z", false)] })).toBe(t("2026-09-22T00:00:00Z"));
   });
 });
+
+import { newestListing } from "../lib/sort";
+describe("newestListing (the card's 'posted …' label)", () => {
+  it("an old role re-posted in a new city today is labelled by the new listing", () => {
+    const old = { id: 1, ...l("2020-03-01T00:00:00Z", "2026-09-20T00:00:00Z", true) };
+    const today = { id: 2, ...l("2026-09-24T09:00:00Z", "2026-09-24T12:00:00Z", false) };
+    expect(newestListing({ listings: [old, today] }).id).toBe(2);
+    expect(newestListing({ listings: [old] }).id).toBe(1);
+  });
+});

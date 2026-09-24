@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import type { Theme } from "@/lib/theme";
 
-/** Phones: the avatar opens a small menu with the theme switch, Settings and Sign out. */
+/** The avatar opens a small menu: who you are, job checker status, theme, Settings, Sign out. A red dot = checker stalled. */
 export function AccountMenu({ name, avatar, theme, checker }: { name: string; avatar?: string; theme: Theme; checker?: { text: string; stale: boolean } }) {
   const [open, setOpen] = useState(false);
   const box = useRef<HTMLDivElement>(null);
@@ -32,8 +32,10 @@ export function AccountMenu({ name, avatar, theme, checker }: { name: string; av
         aria-expanded={open}
         aria-haspopup="true"
         aria-label="Account menu"
-        className="grid size-10 place-items-center"
+        title={checker?.stale ? checker.text : "Account"}
+        className="relative grid size-10 place-items-center"
       >
+        {checker?.stale && <span aria-hidden className="absolute top-1 right-1 z-10 size-2.5 rounded-full border-2 border-surface bg-danger" />}
         {avatar ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={avatar} alt="" className="size-8 rounded-full" referrerPolicy="no-referrer" />

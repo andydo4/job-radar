@@ -6,14 +6,23 @@ interface Listing {
   is_backlog: boolean;
 }
 
+function listingTime(l: Listing): number {
+  const found = new Date(l.first_seen_at).getTime();
+  return l.posted_at ? Math.min(new Date(l.posted_at).getTime(), found) : l.is_backlog ? 0 : found;
+}
+
 /** When a role was posted, for sorting (ms): its most recent listing; backlog with no posted date = oldest. */
 export function postedTime(g: { listings: Listing[] }): number {
   let best = 0;
-  for (const l of g.listings) {
-    const found = new Date(l.first_seen_at).getTime();
-    const t = l.posted_at ? Math.min(new Date(l.posted_at).getTime(), found) : l.is_backlog ? 0 : found;
-    if (t > best) best = t;
-  }
+  for (const l of g.listings) best = Math.max(best, listingTime(l));
   return best;
+}
+
+/**
+ * The listing a role's "posted …" label should use: the newest one, matching the sort.
+ * (Palantir re-posts old roles in new cities: the role is new today even if its first city is years old.)
+ */
+export function newestListing<T extends Listing>(g: { listings: T[] }): T {
+  return g.listings.reduce((a, b) => (listingTime(b) > listingTime(a) ? b : a));
 }
 

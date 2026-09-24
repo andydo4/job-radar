@@ -1,3 +1,4 @@
+import { newestListing } from "@/lib/sort";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -58,7 +59,7 @@ function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; p
   const pay = salaryLabel(j);
   const timing = timingLabel(j);
   const deadline = deadlineInfo(j.deadline);
-  const posted = postedLabel(j);
+  const posted = postedLabel(newestListing(g));
   const exp = experienceLabel(j.experience_min_years);
   const type = j.employment_type && j.employment_type !== "full_time" ? EMPLOYMENT_LABEL[j.employment_type] : null;
   const q = qualify(profile, j);
