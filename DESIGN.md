@@ -1,99 +1,109 @@
 # Job Radar Design System
 
-A bold, technical look: **electric ultramarine** brand surfaces, **crisp white** bordered content, **lime** reserved for highlights, **serif** display headings, **monospace** app UI, and exact **1px corners**. It's flat and precise, with no gradients and no soft shadows.
+A bold, technical look modeled on TypeUI's **Contemporan** style: **electric ultramarine** brand surfaces, **crisp white** bordered content, a **lime** highlight, **Playfair Display** serif headings, **Geist Mono** for the whole app UI, and exact **1px corners**. It's flat and precise.
 
-> Original tokens written for this project, inspired by the "Contemporan" direction on typeui.sh (that skill file itself isn't used).
+> The values below were measured from Contemporan's live preview (typeui.sh/design-skills/contemporan): colors, fonts, radius, borders. This file is our own write-up, since the original skill file is a paid download.
 
 ## Principles
 
-1. **Blue frames, white works.** Full-bleed ultramarine for the app header, hero and footer. Everything you read or act on sits on white (light) or ink (dark) surfaces with 1px borders.
-2. **Lime means "look here".** It's only for new or urgent signals: the "New" count, a just-posted badge, the active nav item, focus on blue surfaces. Never use it for body text, and never put lime text on white (1.3:1 contrast).
-3. **Serif speaks, mono works.** Serif for page titles and big numbers people glance at. Mono for the app itself: labels, buttons, tables, badges, countdowns. Sans for long reading (job descriptions, notes).
-4. **Exact, not soft.** Radius is 1px everywhere. Use borders instead of shadows. Show state with color and border changes, not motion.
+1. **Blue frames, white works.** Full-bleed ultramarine for the hero, header band and footer. Everything you read or act on sits on white with 1px cool-grey borders.
+2. **Lime means "look here".** It's only for new or urgent signals: the "New" tag, the new-jobs count, focus rings on blue. Text on lime is always `--heading` (17.6:1). Never use lime text on white.
+3. **Serif speaks, mono works.** Playfair Display for marketing and page headlines. Geist Mono for *everything else*: app headings, labels, buttons, tables, numbers, body copy in the app.
+4. **Exact, not soft.** Radius is 1px on every component (avatars and status dots are the only round things). Borders instead of shadows.
 
 ## Color tokens
 
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `--brand` | `#2436FF` | `#2436FF` | Header/hero/footer surfaces, primary buttons |
-| `--brand-strong` | `#1E2BE0` | `#1E2BE0` | Primary button hover/pressed |
-| `--on-brand` | `#FFFFFF` | `#FFFFFF` | Text/icons on brand (6.9:1) |
-| `--link` | `#2436FF` | `#8C96FF` | Links and selected states on page surfaces |
-| `--lime` | `#C6F432` | `#C6F432` | Highlights only. Text on lime is always `--ink` (15:1) |
-| `--bg` | `#FFFFFF` | `#0B0B14` | Page background |
-| `--surface` | `#FFFFFF` | `#12121E` | Cards, tables, panels |
-| `--surface-muted` | `#F6F6F9` | `#1A1A28` | Table header, hover rows, inputs |
-| `--ink` | `#0B0B14` | `#F4F4F8` | Primary text |
-| `--ink-muted` | `#5B5B6B` | `#A3A3B2` | Secondary text, meta (6.7:1 / 7.9:1) |
-| `--border` | `#E4E4EA` | `#2A2A3C` | 1px borders and dividers |
-| `--border-strong` | `#0B0B14` | `#F4F4F8` | Emphasized borders (selected card, focused input) |
-| `--success` | `#067647` | `#4ADE80` | Applied, verified live |
-| `--warning` | `#B45309` | `#FBBF24` | Deadline ≤ 14 days |
-| `--danger` | `#B42318` | `#F87171` | Deadline ≤ 3 days, closed job, errors |
+| `--brand` | `#0000F2` | `#0000F2` | Hero/footer surfaces, primary buttons, active tab text, links (9.2:1 on white) |
+| `--brand-strong` | `#0000C2` | `#0000C2` | Primary hover/pressed |
+| `--brand-soft` | `#DDE1FF` | `#1A1A4A` | Selected rows, active tab underline area |
+| `--brand-softer` | `#F1F3FF` | `#12123A` | Subtle brand tint backgrounds |
+| `--lime` | `#EDFF45` | `#EDFF45` | "New" tag, highlights, focus ring on brand surfaces |
+| `--heading` | `#0A0A23` | `#F4F5FB` | Headings, strong numbers |
+| `--body` | `#33374A` | `#E6E8F5` | Body text (11.8:1) |
+| `--body-subtle` | `#6A6E85` | `#9C9FB8` | Meta, labels, timestamps (5.0:1) |
+| `--bg` | `#FFFFFF` | `#07071C` | Page background |
+| `--surface` | `#FFFFFF` | `#0D0D26` | Cards, panels, tables |
+| `--surface-card` | `#F4F6FE` | `#11112E` | Tinted cards/stat tiles |
+| `--surface-muted` | `#EDEFFA` | `#171736` | Secondary buttons, active nav item, table header |
+| `--border` | `#DDE1F5` | `#26264A` | Default 1px borders |
+| `--border-strong` | `#C4C8E0` | `#3A3A66` | Inputs, emphasized dividers |
+| `--link` | `#0000F2` | `#A5AAFF` | Links on page surfaces (dark: 9.3:1) |
+| `--success` / soft | `#15803D` / `#ECFDF3` | `#4ADE80` / `#0F2A1B` | Applied, verified live, up-trends |
+| `--warning` / soft | `#B45309` / `#FFFAEB` | `#FBBF24` / `#2A1F08` | Deadline ≤ 14 days |
+| `--danger` / soft | `#C81E1E` / `#FFF1F2` | `#F87171` / `#2A0E12` | Deadline ≤ 3 days, closed job, errors |
 
-Rules: brand blue text on dark ink fails contrast (2.8:1), so in dark mode links use `--link` (`#8C96FF`). Status is never shown by color alone. Always pair it with a word or icon ("3 days left", "Closed").
+Status is never shown by color alone. Always pair it with a word or icon ("3 days left", "Closed").
 
 ## Typography
 
-Load from Google Fonts: **Instrument Serif** (400, italic), **IBM Plex Mono** (400, 500, 600), **IBM Plex Sans** (400, 500, 600).
+Load via `next/font/google`: **Playfair Display** (600, 700) and **Geist Mono** (400, 500, 600, 700).
 
-| Role | Font | Size / line-height | Weight | Notes |
+| Role | Font | Size / line-height | Weight | Tracking |
 | --- | --- | --- | --- | --- |
-| Display | Instrument Serif | 56/60 (desktop), 40/44 (mobile) | 400 | Hero only ("12 new since your last visit") |
-| H1 | Instrument Serif | 40/44 | 400 | Page titles |
-| H2 | Instrument Serif | 28/32 | 400 | Section titles |
-| Stat | Instrument Serif | 48/48 | 400 | Big numbers: new-job count, days left |
-| Label / UI | IBM Plex Mono | 13/16 | 500 | Buttons, nav, badges, table headers. UPPERCASE, +0.04em tracking |
-| UI body | IBM Plex Mono | 14/20 | 400 | Card meta, table cells, inputs |
-| Reading | IBM Plex Sans | 16/26 | 400 | Descriptions, notes, long text |
-| Small | IBM Plex Mono | 12/16 | 400 | Timestamps ("verified 6 min ago") |
+| Hero display | Playfair Display | 54/60 (desktop), 38/44 (mobile) | 700 | -0.5px |
+| Section headline | Playfair Display | 40/46 | 600 | -0.5px |
+| Card headline (marketing) | Playfair Display | 20/28 | 600 | normal |
+| App page title ("Dashboard") | Geist Mono | 28/36 | 700 | normal |
+| App section title | Geist Mono | 18–20/28 | 500–600 | normal |
+| Stat number | Geist Mono | 28/32 | 700 | normal |
+| Body (app) | Geist Mono | 14/22 | 400 | normal |
+| Label / button / nav | Geist Mono | 14/20 | 500 | normal |
+| Small / meta / eyebrow | Geist Mono | 12/16 | 400–500 | Eyebrows UPPERCASE, +0.04em |
 
-Use tabular numbers (`font-variant-numeric: tabular-nums`) anywhere numbers line up: countdowns, counts, dates.
+Use `font-variant-numeric: tabular-nums` for countdowns, counts and dates.
 
 ## Space, lines and shape
 
-- **Spacing:** 4px base scale: 4, 8, 12, 16, 24, 32, 48, 64, 96. Card padding is 16 (mobile) / 24 (desktop). Section gaps are 48–64.
-- **Radius:** `1px` on everything: buttons, inputs, cards, badges, modals.
-- **Borders:** 1px `--border`. Selected/active cards get 1px `--border-strong` plus a 4px lime left rule.
-- **Shadows:** none. Elevation comes from borders and surface color.
-- **Layout:** 12-column grid, max width 1200px, 16px side gutters on mobile. The dashboard uses a bento grid of bordered cells sharing 1px borders (no gaps).
-- **Motion:** 120ms ease-out on color/border only. Respect `prefers-reduced-motion` (no motion).
+- **Spacing:** 4px base: 4, 8, 12, 16, 24, 32, 48, 64, 96. Cards use 24px padding. Stat grids use 16–24px gaps.
+- **Radius:** `1px` on buttons, inputs, cards, badges, tabs, modals. `9999px` only for avatars and status dots.
+- **Borders:** 1px `--border` on cards, tables and sections. Inputs use `--border-strong`.
+- **Shadows:** none by default. Use one soft shadow only for floating menus/popovers: `0 4px 12px #0a0a231a, 0 1px 3px #0a0a2314`.
+- **Layout:** max width 80rem (1280px), navbar 64px tall, 16px side gutters on mobile. App = left sidebar (about 260px) + content. The dashboard uses a grid of bordered stat cards.
+- **Motion:** 120ms ease-out on color/border only. No motion under `prefers-reduced-motion`.
 
 ## Components
 
-**App header (brand surface).** Full-bleed `--brand`, wordmark in Instrument Serif on `--on-brand`, nav in mono uppercase. The active nav item gets a lime underline (2px). There's a "Last checked 4 min ago" status on the right in mono small, which turns into a `--danger` pill if polling is stale.
+**Top bar (app).** A white bar with a bottom border. On the left is a logo tile: a brand-blue square with a white letter, 1px radius, next to the product name in Geist Mono 600. On the right are the "Last checked 4 min ago" status (mono 12, `--body-subtle`, which turns into a danger badge if polling is stale) and an avatar.
 
-**Buttons.**
-- Primary: `--brand` background, `--on-brand` mono uppercase label, 1px radius, 40px tall (44px on touch). Hover `--brand-strong`.
-- Secondary: white/`--surface` background, 1px `--border-strong`, `--ink` label.
-- Ghost: no border, `--link` label. Used for "Hide" / "Edit".
-- On brand surfaces: white background with `--brand` label.
+**Hero / marketing band.** Full-bleed `--brand`, Playfair headline in white, mono subcopy in white. Includes an announcement pill with a lime "New" tag and a white-on-brand-strong label. The primary CTA is a white button with a brand label. The secondary is `--brand-strong` with a white label.
 
-**Job card.** A bordered `--surface` cell. The top row has the company (mono 13, `--ink-muted`) and a posted/verified timestamp. Then the title (Plex Sans 18/24, 600, `--ink`). Then the badges row: role family, level, degree, location tier. Actions at the bottom: Apply (primary), Save, Hide. If grouped, show "+3 locations" in mono. A new job gets a lime "NEW" badge.
+**Sidebar nav.** Mono 14 items with 16px icons. Active item: `--surface-muted` background, `--heading` text, **3px brand inset left rule** (`box-shadow: inset 3px 0 0 var(--brand)`). Group labels are mono 12 uppercase `--body-subtle`.
 
-**Badges.** Mono 12 uppercase, 1px border, 1px radius, 2px 6px padding. Neutral: `--border` + `--ink-muted`. New: lime background + `--ink`. Status badges use the status color for border + text.
+**Buttons (40px tall, 44px on touch, 1px radius, mono 14/500).**
+- Primary: `--brand` bg, white text, hover `--brand-strong`. Optional leading icon ("+ New report").
+- Secondary: `--surface-muted` bg, `--heading` text, no border.
+- Outline: white bg, 1px `--border-strong`.
+- Ghost/link: `--link` text.
 
-**Deadline row (Grad Programs table).** School + program in Plex Sans. Degree/status in mono. The countdown is right-aligned in mono tabular ("23 DAYS"). At ≤ 14 days the whole row gets a 4px `--warning` left rule and the countdown text in `--warning`. At ≤ 3 days, `--danger`. Past deadlines are shown muted with "Closed".
+**Stat card.** White, 1px `--border`, 24px padding. The label is mono 14 `--body-subtle`, the value is mono 28/700 `--heading`, and the meta line is mono 12. A top-right trend badge uses a soft background plus a 1px tinted border ("↗ 12.4%" success, "↘ 2.1%" danger). An optional sparkline goes in the bottom right.
 
-**Deadline banner.** A strip under the header with the next 3 deadlines as bordered cells: school (mono), program (sans), days left (serif stat).
+**Job card.** White, 1px `--border`. Top row: company (mono 12 `--body-subtle`) + "verified 6 min ago". Title in mono 16/600 `--heading`. Badge row: role family, level, degree, location tier. A new job gets a lime "NEW" tag. Actions: Apply (primary), Save (secondary), Hide (ghost). Grouped listings show "+3 locations".
 
-**Inputs.** 40px tall, `--surface-muted` background, 1px `--border`, 1px radius, mono 14. Focus: 1px `--border-strong` + 2px `--brand` outline offset 2px. Error: `--danger` border + message below.
+**Badges / tags.** Mono 12, 1px radius, 2px 8px padding. Neutral: `--surface-muted` bg + `--body`. Status: soft bg + 1px border tinted from the status color + status text. New: lime bg + `--heading`.
 
-**Tables.** Header row `--surface-muted`, mono uppercase 12. Rows separated by 1px `--border`, hover `--surface-muted`. Dense by default (40px rows).
+**Tabs.** Mono 14 with icons. Active: `--brand` text + 2px `--brand` underline. Inactive: `--body-subtle`.
 
-**Empty states.** A serif headline plus one line of mono explanation plus one primary action. No illustrations.
+**Tables.** Header row `--surface-muted`, mono 12 uppercase `--body-subtle`. Rows separated by 1px `--border`, hover `--brand-softer`. 44px rows.
+
+**Grad Programs deadline row.** School/program in mono 14 `--heading`, status badge, and a right-aligned countdown in mono tabular ("23 days"). At ≤ 14 days: warning-soft row background + warning text. At ≤ 3 days: danger-soft + danger text. Past deadlines: `--body-subtle` + "Closed".
+
+**Deadline banner.** A row of 3 bordered cells under the top bar: school (mono 12 subtle), program (mono 14 heading), days left (mono 28/700).
+
+**Inputs.** 40px, white bg, 1px `--border-strong`, 1px radius, mono 14, placeholder `--body-subtle`. Focus: 2px `--brand` outline, offset 2px. Error: `--danger` border + message.
+
+**Empty state.** A Playfair headline, one line of mono copy, and one primary button. No illustrations.
 
 ## Accessibility
 
-- WCAG 2.2 AA. All token pairs above meet 4.5:1 for text.
-- Visible focus everywhere: a 2px `--brand` outline on light surfaces, 2px `--lime` on brand surfaces.
-- Touch targets are at least 44×44px.
-- Semantic HTML first (`<button>`, `<table>`, `<nav>`), ARIA only when needed.
-- Never rely on color alone for deadlines, status or tiers.
+- WCAG 2.2 AA. Every text/background pair above is at least 4.5:1.
+- Visible focus: 2px `--brand` outline on light surfaces, 2px `--lime` on brand surfaces.
+- 44×44px minimum touch targets. Semantic HTML first. Never color alone.
 
 ## Writing tone
 
-Short, direct, helpful. Use labels in mono uppercase ("APPLY", "SAVE", "3 DAYS LEFT"). Use sentence case for everything else. Say what happened and what to do: "This job just closed. It was removed from your feed."
+Concise, confident, friendly. Sentence case for everything, e.g. "New report", "Start free trial". Uppercase only for small eyebrow labels ("WORKSPACE OVERVIEW"). Say what happened and what to do next.
 
 ## Tailwind v4 theme (paste into `app/globals.css`)
 
@@ -101,32 +111,49 @@ Short, direct, helpful. Use labels in mono uppercase ("APPLY", "SAVE", "3 DAYS L
 @import "tailwindcss";
 
 @theme {
-  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
-  --radius-DEFAULT: 1px;
-  --color-brand: #2436ff;
-  --color-brand-strong: #1e2be0;
-  --color-lime: #c6f432;
+  --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-geist-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: var(--font-geist-mono), ui-monospace, monospace; /* app body is mono */
+  --radius-xs: 1px; --radius-sm: 1px; --radius-md: 1px; --radius-lg: 1px;
+  --color-brand: #0000f2;
+  --color-brand-strong: #0000c2;
+  --color-brand-soft: #dde1ff;
+  --color-brand-softer: #f1f3ff;
+  --color-lime: #edff45;
+  --color-heading: var(--heading);
+  --color-body: var(--body);
+  --color-body-subtle: var(--body-subtle);
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
 }
 
 :root {
-  --bg: #ffffff; --surface: #ffffff; --surface-muted: #f6f6f9;
-  --ink: #0b0b14; --ink-muted: #5b5b6b; --border: #e4e4ea; --border-strong: #0b0b14;
-  --link: #2436ff; --success: #067647; --warning: #b45309; --danger: #b42318;
+  --bg: #ffffff; --surface: #ffffff; --surface-card: #f4f6fe; --surface-muted: #edeffa;
+  --heading: #0a0a23; --body: #33374a; --body-subtle: #6a6e85;
+  --border: #dde1f5; --border-strong: #c4c8e0; --link: #0000f2;
+  --success: #15803d; --success-soft: #ecfdf3;
+  --warning: #b45309; --warning-soft: #fffaeb;
+  --danger: #c81e1e;  --danger-soft: #fff1f2;
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b0b14; --surface: #12121e; --surface-muted: #1a1a28;
-    --ink: #f4f4f8; --ink-muted: #a3a3b2; --border: #2a2a3c; --border-strong: #f4f4f8;
-    --link: #8c96ff; --success: #4ade80; --warning: #fbbf24; --danger: #f87171;
+    --bg: #07071c; --surface: #0d0d26; --surface-card: #11112e; --surface-muted: #171736;
+    --heading: #f4f5fb; --body: #e6e8f5; --body-subtle: #9c9fb8;
+    --border: #26264a; --border-strong: #3a3a66; --link: #a5aaff;
+    --success: #4ade80; --success-soft: #0f2a1b;
+    --warning: #fbbf24; --warning-soft: #2a1f08;
+    --danger: #f87171;  --danger-soft: #2a0e12;
   }
 }
+body { background: var(--bg); color: var(--body); font-family: var(--font-mono); }
 ```
 
 ## Don't
 
-- Use gradients, drop shadows, or radius above 1px.
+- Round corners past 1px (except avatars/dots), or add gradients.
 - Use lime for text on light surfaces or for anything that isn't a highlight.
-- Mix fonts inside one element (e.g., a serif button label).
-- Put long reading text in mono.
+- Use Playfair inside app UI controls, or mono for marketing hero headlines.
+- Stack shadows on cards. Borders do the work.
