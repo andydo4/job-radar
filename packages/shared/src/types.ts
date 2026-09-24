@@ -45,6 +45,8 @@ export interface NormalizedJob {
    * Workday job detail). ISO code ("US") or a name ("United States of America").
    */
   country?: string;
+  /** Structured pay / job type / requirement lists, when the ATS provides them (see details.ts). */
+  detailHints?: import("./details.ts").DetailHints;
 }
 
 export interface FetchResult {

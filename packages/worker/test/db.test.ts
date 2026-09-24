@@ -7,7 +7,11 @@ import {
   planPersist,
   stateFromDb,
   type CompanyRow,
+  backfillDetails,
+  DETAILS_VERSION,
+  type JobDetailsUpdate,
   type JobInsertRow,
+  type JobNeedingDetails,
   type JobsDb,
   type OpenJobRow,
   type RunRow,
@@ -18,7 +22,8 @@ const FIXTURES = join(__dirname, "../../../fixtures");
 /** In-memory stand-in for Supabase that behaves like the SQL in 0002_jobs.sql. */
 class FakeDb implements JobsDb {
   companies = new Map<string, CompanyRow>();
-  jobs = new Map<string, JobInsertRow & { misses: number; closed_at: string | null }>();
+  jobs = new Map<string, JobInsertRow & { id: number; misses: number; closed_at: string | null; description_text: string | null }>();
+  private nextId = 1;
   runs: RunRow[] = [];
   private k = (c: string, e: string) => `${c}::${e}`;
 
@@ -39,7 +44,7 @@ class FakeDb implements JobsDb {
   async insertJobs(rows: JobInsertRow[]) {
     for (const r of rows) {
       if (!this.companies.has(r.company_id)) throw new Error("FK violation: company missing");
-      this.jobs.set(this.k(r.company_id, r.external_id), { ...r, misses: 0, closed_at: null });
+      this.jobs.set(this.k(r.company_id, r.external_id), { ...r, id: this.nextId++, misses: 0, closed_at: null });
     }
   }
   async touchJobs(c: string, ids: string[], at: string) {
@@ -62,6 +67,15 @@ class FakeDb implements JobsDb {
   }
   async insertRun(r: RunRow) {
     this.runs.push(r);
+  }
+  async loadJobsNeedingDetails(limit: number, version: number): Promise<JobNeedingDetails[]> {
+    return [...this.jobs.values()].filter((j) => !j.closed_at && j.details_version < version).slice(0, limit);
+  }
+  async updateJobDetails(rows: JobDetailsUpdate[]) {
+    for (const u of rows) {
+      const j = [...this.jobs.values()].find((x) => x.id === u.id)!;
+      Object.assign(j, { ...u, description_text: u.description_text ?? j.description_text, locations: u.locations ?? j.locations });
+    }
   }
 }
 
@@ -140,5 +154,37 @@ describe("poller + database", () => {
     db.companies.set("old-co", { ...db.companies.get("example-gh")!, id: "old-co", active: true });
     await cycle(db, "2026-09-20T12:10:00Z");
     expect(db.companies.get("old-co")!.active).toBe(false);
+  });
+});
+
+describe("job details", () => {
+  it("saves pay, job type and requirements when a job is first saved (Lever/Ashby structured fields)", async () => {
+    const db = new FakeDb();
+    await cycle(db, "2026-09-20T12:00:00Z");
+    const lever = db.jobs.get("example-lever::165ff672-7f3c-42a9-a00d-662a60cf12ff")!;
+    expect(lever).toMatchObject({ salary_min: 70000, salary_max: 85000, salary_period: "year", employment_type: "contract", details_version: DETAILS_VERSION });
+    expect(lever.requirements).toHaveLength(2);
+    const gh = db.jobs.get("example-gh::5238882007")!;
+    expect(gh.details_version).toBe(DETAILS_VERSION);
+  });
+
+  it("Workday jobs without a description are filled in by the backfill, within a per-run budget", async () => {
+    const db = new FakeDb();
+    const { summary } = await cycle(db, "2026-09-20T12:00:00Z");
+    const workday = () => [...db.jobs.values()].filter((j) => j.company_id === "example-wd");
+    expect(workday().every((j) => j.details_version === 0)).toBe(true);
+
+    const ctx = { fetch: fixturesFetch(FIXTURES), userAgent: "test" };
+    const first = await backfillDetails(db, ctx, FIXTURE_COMPANIES, summary.fetched, { maxWorkdayFetches: 10 });
+    expect(first.fetchedDetails).toBe(10);
+    expect(workday().filter((j) => j.details_version === DETAILS_VERSION)).toHaveLength(10);
+    const done = workday().find((j) => j.details_version === DETAILS_VERSION)!;
+    expect(done).toMatchObject({ salary_min: 68000, salary_max: 113400, employment_type: "full_time", experience_min_years: 0, is_us: true });
+    expect(done.description_text).toContain("vaccines team");
+
+    // Keep going until everything is filled in.
+    for (let i = 0; i < 5; i++) await backfillDetails(db, ctx, FIXTURE_COMPANIES, summary.fetched, { maxWorkdayFetches: 10 });
+    expect(workday().every((j) => j.details_version === DETAILS_VERSION)).toBe(true);
+    expect((await db.loadJobsNeedingDetails(100, DETAILS_VERSION))).toHaveLength(0);
   });
 });

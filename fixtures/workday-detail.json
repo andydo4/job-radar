@@ -2,15 +2,22 @@
   "jobPostingInfo": {
     "id": "a1b2c3",
     "title": "Associate Scientist",
-    "jobDescription": "<p>Join our vaccines team.</p><ul><li>Bachelor&#39;s degree in Biology, Chemistry or related field</li></ul>",
+    "jobDescription": "<p>Join our vaccines team.</p><p><b>Qualifications</b></p><ul><li>Bachelor&#39;s degree in Biology, Chemistry or related field</li><li>0-2 years of laboratory experience</li></ul><p>The annual base salary for this position ranges from $68,000.00 to $113,400.00.</p>",
     "location": "Pearl River, NY",
-    "additionalLocations": ["Andover, MA"],
+    "additionalLocations": [
+      "Andover, MA"
+    ],
     "postedOn": "Posted Today",
     "startDate": "2026-09-24",
     "timeType": "Full time",
     "jobReqId": "4999999",
-    "country": { "descriptor": "United States of America", "id": "bc33aa3152ec42d4995f4791a106ed09" },
+    "country": {
+      "descriptor": "United States of America",
+      "id": "bc33aa3152ec42d4995f4791a106ed09"
+    },
     "externalUrl": "https://examplepharma.wd1.myworkdayjobs.com/Careers/job/Pearl-River-NY/Associate-Scientist_4999999"
   },
-  "hiringOrganization": { "name": "Example Pharma" }
+  "hiringOrganization": {
+    "name": "Example Pharma"
+  }
 }

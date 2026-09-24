@@ -1,6 +1,7 @@
 import type { Company, FetchResult, NormalizedJob } from "../types.ts";
 import { requestJson, type HttpContext } from "../http.ts";
 import { isRemoteText, uniq } from "./util.ts";
+import { listItemsFromHtml, type DetailHints } from "../details.ts";
 
 // GET https://api.lever.co/v0/postings/{slug}?mode=json  -> flat array
 interface LeverPosting {
@@ -11,6 +12,8 @@ interface LeverPosting {
   workplaceType?: string; // "remote" | "hybrid" | "on-site" | "unspecified"
   country?: string;
   descriptionPlain?: string;
+  salaryRange?: { currency?: string; interval?: string; min?: number; max?: number } | null;
+  lists?: { text?: string; content?: string }[];
   categories?: {
     location?: string;
     allLocations?: string[];
@@ -22,6 +25,23 @@ interface LeverPosting {
 
 export function leverUrl(slug: string): string {
   return `https://api.lever.co/v0/postings/${encodeURIComponent(slug)}?mode=json`;
+}
+
+function leverHints(p: LeverPosting): DetailHints {
+  const r = p.salaryRange;
+  const period = r?.interval?.includes("hour") ? "hour" : r?.interval?.includes("year") ? "year" : null;
+  const reqLists = (p.lists ?? [])
+    .filter((l) => /requirement|qualification|looking for|you have|you bring|about you|need/i.test(l.text ?? ""))
+    .map((l) => listItemsFromHtml(l.content ?? ""))
+    .filter((l) => l.length);
+  return {
+    salary:
+      r && period && typeof r.min === "number" && typeof r.max === "number"
+        ? { min: r.min, max: r.max, currency: r.currency ?? "USD", period }
+        : null,
+    employmentTypeText: p.categories?.commitment,
+    requirementLists: reqLists,
+  };
 }
 
 export function parseLever(company: Company, data: unknown): NormalizedJob[] {
@@ -40,6 +60,7 @@ export function parseLever(company: Company, data: unknown): NormalizedJob[] {
       department: cats.department ?? cats.team ?? undefined,
       descriptionText: p.descriptionPlain ?? undefined,
       country: p.country || undefined,
+      detailHints: leverHints(p),
     };
   });
 }

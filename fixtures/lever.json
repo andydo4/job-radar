@@ -13,8 +13,26 @@
       "department": "Research",
       "location": "Redwood City, CA",
       "team": "Assay Development",
-      "allLocations": ["Redwood City, CA"]
-    }
+      "allLocations": [
+        "Redwood City, CA"
+      ]
+    },
+    "salaryRange": {
+      "currency": "USD",
+      "interval": "per-year-salary",
+      "min": 70000,
+      "max": 85000
+    },
+    "lists": [
+      {
+        "text": "Requirements",
+        "content": "<li>BS in Biology or related field</li><li>2+ years of assay development experience</li>"
+      },
+      {
+        "text": "Benefits",
+        "content": "<li>Great health insurance plan</li>"
+      }
+    ]
   },
   {
     "id": "52e9c172-0744-410b-8ee0-35d65ddcf895",
@@ -26,7 +44,10 @@
     "categories": {
       "location": "Cambridge, MA",
       "team": "Discovery",
-      "allLocations": ["Cambridge, MA", "New York, NY"]
+      "allLocations": [
+        "Cambridge, MA",
+        "New York, NY"
+      ]
     }
   }
 ]

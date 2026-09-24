@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   enrichWorkdayJob,
+  extractDetails,
   fetchWorkday,
   parseAshby,
   parseWorkdayDetail,
@@ -157,5 +158,36 @@ describe("country fields", () => {
     expect(calls[0]).toBe("https://pfizer.wd1.myworkdayjobs.com/wday/cxs/pfizer/PfizerCareers/job/X/Associate-Scientist_4999999");
     expect(out.locations).toEqual(["Pearl River, NY", "Andover, MA"]);
     expect(out.country).toBe("United States of America");
+  });
+});
+
+describe("detail hints from the ATS", () => {
+  it("lever: salaryRange, commitment and the Requirements list", () => {
+    const [j] = parseLever(co("lever", "examplelever"), fx("lever.json"));
+    expect(extractDetails(j!.title, j!.descriptionText, j!.detailHints)).toEqual({
+      salary: { min: 70000, max: 85000, currency: "USD", period: "year" },
+      employmentType: "contract", // title says (Contract), which beats the commitment field
+      experienceMinYears: 2,
+      requirements: ["BS in Biology or related field", "2+ years of assay development experience"],
+    });
+  });
+
+  it("ashby: structured compensation and employmentType", () => {
+    const [j] = parseAshby(co("ashby", "exampleashby", "consulting"), fx("ashby.json"));
+    const d = extractDetails(j!.title, j!.descriptionText, j!.detailHints);
+    expect(d.salary).toEqual({ min: 95000, max: 115000, currency: "USD", period: "year" });
+    expect(d.employmentType).toBe("full_time");
+  });
+
+  it("workday: detail page gives time type, requirements and pay from the description", async () => {
+    const fetch: FetchFn = async () => ({ status: 200, json: async () => fx("workday-detail.json") });
+    const job = { companyId: "x", externalId: "/job/X/A_1", title: "Associate Scientist", url: "u", locations: [], remote: false, postedAt: null };
+    const out = await enrichWorkdayJob({ fetch, userAgent: "t" }, co("workday", "pfizer|wd1|PfizerCareers", "pharma"), job);
+    expect(extractDetails(out.title, out.descriptionText, out.detailHints)).toEqual({
+      salary: { min: 68000, max: 113400, currency: "USD", period: "year" },
+      employmentType: "full_time",
+      experienceMinYears: 0,
+      requirements: ["Bachelor's degree in Biology, Chemistry or related field", "0-2 years of laboratory experience"],
+    });
   });
 });

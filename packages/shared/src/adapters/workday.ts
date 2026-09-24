@@ -151,6 +151,7 @@ interface WdDetail {
     country?: { descriptor?: string } | string;
     remoteType?: string;
     startDate?: string;
+    timeType?: string;
   };
 }
 
@@ -163,6 +164,7 @@ export function parseWorkdayDetail(data: unknown): {
   locations: string[];
   country?: string;
   remote: boolean;
+  timeType?: string;
 } {
   const info = (data as WdDetail)?.jobPostingInfo ?? {};
   const country = typeof info.country === "string" ? info.country : info.country?.descriptor;
@@ -174,6 +176,7 @@ export function parseWorkdayDetail(data: unknown): {
     locations: [...new Set(locations)],
     country: country || undefined,
     remote: /remote/i.test(info.remoteType ?? "") || locations.some(isRemoteText),
+    timeType: info.timeType,
   };
 }
 
@@ -187,5 +190,6 @@ export async function enrichWorkdayJob(ctx: HttpContext, company: Company, job: 
     locations: d.locations.length ? d.locations : job.locations,
     country: d.country ?? job.country,
     remote: job.remote || d.remote,
+    detailHints: { ...job.detailHints, employmentTypeText: d.timeType ?? job.detailHints?.employmentTypeText },
   };
 }

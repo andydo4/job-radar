@@ -8,14 +8,37 @@
       "team": "Life Sciences Strategy",
       "employmentType": "FullTime",
       "location": "New York, NY",
-      "secondaryLocations": [{ "location": "Boston, MA" }],
+      "secondaryLocations": [
+        {
+          "location": "Boston, MA"
+        }
+      ],
       "publishedAt": "2026-09-18T15:00:00.000+00:00",
       "isListed": true,
       "isRemote": false,
       "workplaceType": "Hybrid",
       "jobUrl": "https://jobs.ashbyhq.com/exampleashby/a1b2c3d4-0000-4000-8000-000000000001",
       "applyUrl": "https://jobs.ashbyhq.com/exampleashby/a1b2c3d4-0000-4000-8000-000000000001/application",
-      "descriptionPlain": "Bachelor's degree required; life sciences background preferred."
+      "descriptionPlain": "Bachelor's degree required; life sciences background preferred.",
+      "compensation": {
+        "compensationTierSummary": "$95K \u2013 $115K",
+        "summaryComponents": [
+          {
+            "compensationType": "EquityPercentage",
+            "interval": "NONE",
+            "currencyCode": null,
+            "minValue": null,
+            "maxValue": null
+          },
+          {
+            "compensationType": "Salary",
+            "interval": "1 YEAR",
+            "currencyCode": "USD",
+            "minValue": 95000,
+            "maxValue": 115000
+          }
+        ]
+      }
     },
     {
       "id": "a1b2c3d4-0000-4000-8000-000000000002",

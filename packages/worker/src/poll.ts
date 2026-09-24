@@ -27,7 +27,7 @@ import { ROOT, isMain } from "./paths.ts";
 import { FIXTURE_COMPANIES, fixturesFetch, simulateNewPostings } from "./fixtures-fetch.ts";
 import { renderMarkdown, type CompanyRunResult, type RunSummary } from "./report.ts";
 import { applyFetch, loadState, needsFullSweep, recordFailure, saveState, type State } from "./store.ts";
-import { applyPlan, dbFromEnv, planPersist, stateFromDb } from "./db.ts";
+import { applyPlan, backfillDetails, dbFromEnv, planPersist, stateFromDb } from "./db.ts";
 
 
 export interface PollOptions {
@@ -47,15 +47,18 @@ export interface PollOptions {
   userAgent?: string;
 }
 
+export function makeCtx(fetch: FetchFn, userAgent?: string): HttpContext {
+  return {
+    fetch,
+    userAgent:
+      userAgent ?? `job-radar/0.1 (personal job alerts; +https://github.com/${process.env.GITHUB_REPOSITORY ?? "job-radar"})`,
+  };
+}
+
 export async function runPoll(opts: PollOptions): Promise<RunSummary> {
   const now = opts.now ?? (() => new Date());
   const startedAt = now().toISOString();
-  const ctx: HttpContext = {
-    fetch: opts.fetch,
-    userAgent:
-      opts.userAgent ??
-      `job-radar/0.1 (personal job alerts; +https://github.com/${process.env.GITHUB_REPOSITORY ?? "job-radar"})`,
-  };
+  const ctx = makeCtx(opts.fetch, opts.userAgent);
   const active = opts.companies.filter((c) => c.active);
   const allNew: ClassifiedJob[] = [];
   const fetched = new Map<string, ClassifiedJob[]>();
@@ -197,6 +200,12 @@ async function main() {
       requests: summary.results.reduce((n, r) => n + r.requests, 0),
       github_run_url: runUrl,
     });
+    // Fill in pay / experience / requirements for older jobs, a batch per run.
+    const bf = await backfillDetails(db, makeCtx(globalThis.fetch as unknown as FetchFn), companies, summary.fetched, {
+      limit: Number(process.env.DETAILS_BACKFILL_LIMIT ?? 300),
+      maxWorkdayFetches: Number(process.env.DETAILS_WORKDAY_FETCHES ?? 40),
+    });
+    console.log(`Details: ${bf.updated} jobs updated (${bf.fetchedDetails} Workday detail pages)${bf.remaining ? ", more next run" : ""}.`);
     console.log(
       `Saved to Supabase: ${plan.inserts.length} jobs inserted, ${[...plan.touches.values()].reduce((n, t) => n + t.ids.length, 0)} re-seen, ` +
         `${[...plan.closed.values()].reduce((n, c) => n + c.length, 0)} closed.`,

@@ -10,7 +10,16 @@
  * Only the poller writes these tables, with the Supabase SECRET key (GitHub Actions secret).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { ClassifiedJob, Company } from "@job-radar/shared";
+import {
+  classifyJob,
+  enrichWorkdayJob,
+  extractDetails,
+  mapLimit,
+  type ClassifiedJob,
+  type Company,
+  type HttpContext,
+  type NormalizedJob,
+} from "@job-radar/shared";
 import type { CompanyState, State } from "./store.ts";
 
 // ---------------------------------------------------------------------------
@@ -62,6 +71,53 @@ export interface JobInsertRow {
   is_backlog: boolean;
   first_seen_at: string;
   last_seen_at: string;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  salary_period: string | null;
+  employment_type: string | null;
+  experience_min_years: number | null;
+  requirements: string[];
+  details_version: number;
+}
+
+/**
+ * Bump when details extraction improves: every open job below this version is re-processed
+ * by backfillDetails() over the next few runs.
+ */
+export const DETAILS_VERSION = 1;
+
+/** A saved job that still needs its details filled in. */
+export interface JobNeedingDetails {
+  id: number;
+  company_id: string;
+  external_id: string;
+  title: string;
+  url: string;
+  locations: string[];
+  remote: boolean;
+  country: string | null;
+  department: string | null;
+  description_text: string | null;
+  posted_at: string | null;
+}
+
+export interface JobDetailsUpdate {
+  id: number;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string | null;
+  salary_period: string | null;
+  employment_type: string | null;
+  experience_min_years: number | null;
+  requirements: string[];
+  description_text: string | null;
+  locations: string[] | null;
+  country: string | null;
+  is_us: boolean | null;
+  metro_tier: number | null;
+  degree_min: string | null;
+  details_version: number;
 }
 
 export interface RunRow {
@@ -87,6 +143,8 @@ export interface JobsDb {
   markMissed(companyId: string, externalIds: string[]): Promise<void>;
   closeJobs(companyId: string, externalIds: string[], closedAt: string): Promise<void>;
   insertRun(row: RunRow): Promise<void>;
+  loadJobsNeedingDetails(limit: number, version: number): Promise<JobNeedingDetails[]>;
+  updateJobDetails(rows: JobDetailsUpdate[]): Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +181,25 @@ export { key as jobKey };
 
 const MAX_DESCRIPTION = 20_000;
 
-function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, lastSeenAt: string): JobInsertRow {
+/** Workday list entries have no description until we open the job's detail page. */
+function needsDetailFetch(j: NormalizedJob, ats: string | undefined): boolean {
+  return ats === "workday" && !j.descriptionText;
+}
+
+function detailColumns(j: NormalizedJob) {
+  const d = extractDetails(j.title, j.descriptionText, j.detailHints);
+  return {
+    salary_min: d.salary?.min ?? null,
+    salary_max: d.salary?.max ?? null,
+    salary_currency: d.salary?.currency ?? null,
+    salary_period: d.salary?.period ?? null,
+    employment_type: d.employmentType,
+    experience_min_years: d.experienceMinYears,
+    requirements: d.requirements,
+  };
+}
+
+function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, lastSeenAt: string, ats?: string): JobInsertRow {
   return {
     company_id: j.companyId,
     external_id: j.externalId,
@@ -145,6 +221,8 @@ function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, 
     is_backlog: isBacklog,
     first_seen_at: firstSeenAt,
     last_seen_at: lastSeenAt,
+    ...detailColumns(j),
+    details_version: needsDetailFetch(j, ats) ? 0 : DETAILS_VERSION,
   };
 }
 
@@ -204,7 +282,7 @@ export function planPersist(
       const prev = b[id];
       if (!prev) {
         const job = byId.get(id);
-        if (job) plan.inserts.push(toInsertRow(job, !newKeys.has(key(c.id, id)), now.firstSeenAt, now.lastSeenAt));
+        if (job) plan.inserts.push(toInsertRow(job, !newKeys.has(key(c.id, id)), now.firstSeenAt, now.lastSeenAt, c.ats));
       } else if (now.lastSeenAt !== prev.lastSeenAt) {
         touched.push(id);
         touchedAt = now.lastSeenAt;
@@ -232,6 +310,82 @@ export async function applyPlan(db: JobsDb, plan: PersistPlan, csvCompanyIds: st
   const closedAt = run.finished_at;
   for (const [companyId, ids] of plan.closed) await db.closeJobs(companyId, ids, closedAt);
   await db.insertRun(run);
+}
+
+// ---------------------------------------------------------------------------
+// Backfill: fill in details for jobs saved before details existed (and Workday jobs,
+// whose description needs one extra request each). A little every run.
+// ---------------------------------------------------------------------------
+
+export interface BackfillOptions {
+  /** Jobs to process per run. */
+  limit?: number;
+  /** Workday detail-page requests per run (politeness). */
+  maxWorkdayFetches?: number;
+}
+
+export async function backfillDetails(
+  db: JobsDb,
+  ctx: HttpContext,
+  companies: Company[],
+  fetched: Map<string, ClassifiedJob[]>,
+  opts: BackfillOptions = {},
+): Promise<{ updated: number; fetchedDetails: number; remaining: boolean }> {
+  const limit = opts.limit ?? 300;
+  const rows = await db.loadJobsNeedingDetails(limit, DETAILS_VERSION);
+  const byCompany = new Map(companies.map((c) => [c.id, c]));
+  // This run's fetch has the structured hints (Lever salaryRange, Ashby compensation) the DB doesn't keep.
+  const live = new Map<string, NormalizedJob>();
+  for (const [cid, jobs] of fetched) for (const j of jobs) live.set(key(cid, j.externalId), j);
+
+  let workdayBudget = opts.maxWorkdayFetches ?? 40;
+  let fetchedDetails = 0;
+  const updates = (
+    await mapLimit(rows, 2, async (r): Promise<JobDetailsUpdate | null> => {
+      const company = byCompany.get(r.company_id);
+      if (!company) return null;
+      let job: NormalizedJob = live.get(key(r.company_id, r.external_id)) ?? {
+        companyId: r.company_id,
+        externalId: r.external_id,
+        title: r.title,
+        url: r.url,
+        locations: r.locations,
+        remote: r.remote,
+        postedAt: r.posted_at,
+        country: r.country ?? undefined,
+        department: r.department ?? undefined,
+        descriptionText: r.description_text ?? undefined,
+      };
+      if (!job.descriptionText && r.description_text) job = { ...job, descriptionText: r.description_text };
+      let gotDescription = false;
+      if (needsDetailFetch(job, company.ats)) {
+        if (workdayBudget <= 0) return null; // next run
+        workdayBudget--;
+        try {
+          job = await enrichWorkdayJob(ctx, company, job);
+          fetchedDetails++;
+          gotDescription = Boolean(job.descriptionText);
+        } catch {
+          return null; // try again next run
+        }
+      }
+      const c = classifyJob(job, company);
+      return {
+        id: r.id,
+        ...detailColumns(job),
+        description_text: gotDescription ? (job.descriptionText ?? "").slice(0, MAX_DESCRIPTION) : null,
+        locations: gotDescription ? job.locations : null,
+        country: job.country ?? null,
+        is_us: c.isUS,
+        metro_tier: c.metroTier,
+        degree_min: c.degreeMin,
+        details_version: DETAILS_VERSION,
+      };
+    })
+  ).filter((u): u is JobDetailsUpdate => u !== null);
+
+  for (let i = 0; i < updates.length; i += 200) await db.updateJobDetails(updates.slice(i, i + 200));
+  return { updated: updates.length, fetchedDetails, remaining: rows.length === limit || updates.length < rows.length };
 }
 
 // ---------------------------------------------------------------------------
@@ -296,6 +450,20 @@ export function supabaseJobsDb(client: SupabaseClient): JobsDb {
     },
     async insertRun(row) {
       check(await client.from("poll_runs").insert(row), "insert run");
+    },
+    async loadJobsNeedingDetails(limit, version) {
+      const res = await client
+        .from("jobs")
+        .select("id, company_id, external_id, title, url, locations, remote, country, department, description_text, posted_at")
+        .is("closed_at", null)
+        .lt("details_version", version)
+        .order("first_seen_at", { ascending: false })
+        .limit(limit);
+      check(res, "load jobs needing details");
+      return (res.data ?? []) as JobNeedingDetails[];
+    },
+    async updateJobDetails(rows) {
+      if (rows.length) check(await client.rpc("update_job_details", { p_rows: rows }), "update job details");
     },
   };
 }

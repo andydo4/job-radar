@@ -35,8 +35,30 @@ export interface JobRow {
   posted_at: string | null;
   posted_text: string | null;
   dedupe_key: string;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_period: "year" | "hour" | null;
+  employment_type: string | null;
+  experience_min_years: number | null;
+  requirements: string[] | null;
   company: { name: string; segment: string } | null;
 }
+
+export interface JobFilters {
+  view: View;
+  family?: string;
+  /** Max years of experience a posting may ask for (jobs that don't say are kept). */
+  exp?: number;
+  /** Highest degree you have: hides jobs that need more ("bs" hides MS/PhD-only). */
+  degree?: "bs" | "ms";
+  /** Only jobs that list pay. */
+  pay?: boolean;
+  /** Hide contract / temporary roles. */
+  noContract?: boolean;
+}
+
+const COLUMNS =
+  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, company:companies(name, segment)";
 
 /** One role, possibly posted as several listings (one per city). */
 export interface JobGroup {
@@ -54,15 +76,10 @@ const LEVELS = ["intern", "entry", "unspecified"];
 const NEW_WINDOW_DAYS = 14;
 export const NEW_BADGE_HOURS = 48;
 
-export async function getJobs(
-  supabase: SupabaseClient,
-  opts: { view: View; family?: string },
-): Promise<{ groups: JobGroup[]; total: number }> {
+export async function getJobs(supabase: SupabaseClient, opts: JobFilters): Promise<{ groups: JobGroup[]; total: number }> {
   let q = supabase
     .from("jobs")
-    .select(
-      "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, company:companies(name, segment)",
-    )
+    .select(COLUMNS)
     .is("closed_at", null)
     .eq("is_us", true)
     .in("seniority", LEVELS)
@@ -73,6 +90,11 @@ export async function getJobs(
     q = q.eq("is_backlog", false).gte("first_seen_at", new Date(Date.now() - NEW_WINDOW_DAYS * 86_400_000).toISOString());
   }
   if (opts.family) q = q.eq("role_family", opts.family);
+  if (opts.exp !== undefined) q = q.or(`experience_min_years.is.null,experience_min_years.lte.${opts.exp}`);
+  if (opts.degree === "bs") q = q.or("degree_min.is.null,degree_min.eq.bs");
+  if (opts.degree === "ms") q = q.or("degree_min.is.null,degree_min.in.(bs,ms)");
+  if (opts.pay) q = q.not("salary_min", "is", null);
+  if (opts.noContract) q = q.or("employment_type.is.null,employment_type.not.in.(contract,temporary)");
 
   const { data, error } = await q;
   if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
@@ -136,3 +158,52 @@ export function timeAgo(iso: string, now = Date.now()): string {
 export function isStale(finishedAt: string | undefined, now = Date.now()): boolean {
   return !finishedAt || now - new Date(finishedAt).getTime() > 60 * 60_000;
 }
+
+export interface JobDetail extends JobRow {
+  description_text: string | null;
+  country: string | null;
+  department: string | null;
+  closed_at: string | null;
+}
+
+export async function getJob(supabase: SupabaseClient, id: number): Promise<{ job: JobDetail; siblings: JobRow[] } | null> {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(`${COLUMNS}, description_text, country, department, closed_at`)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(`Couldn't load job: ${error.message}`);
+  if (!data) return null;
+  const job = data as unknown as JobDetail;
+  const { data: sib } = await supabase
+    .from("jobs")
+    .select(COLUMNS)
+    .eq("company_id", job.company_id)
+    .eq("dedupe_key", job.dedupe_key)
+    .is("closed_at", null)
+    .neq("id", id)
+    .limit(30);
+  return { job, siblings: (sib ?? []) as unknown as JobRow[] };
+}
+
+/** "$85K–$110K / yr" or "$28–$32 / hr" (mirrors formatSalary in packages/shared). */
+export function salaryLabel(j: Pick<JobRow, "salary_min" | "salary_max" | "salary_period">): string | null {
+  if (j.salary_min === null || j.salary_max === null || !j.salary_period) return null;
+  const min = Number(j.salary_min);
+  const max = Number(j.salary_max);
+  const f = (n: number) => (j.salary_period === "year" ? `$${Math.round(n / 1000)}K` : `$${Number.isInteger(n) ? n : n.toFixed(2)}`);
+  return `${min === max ? f(min) : `${f(min)}–${f(max)}`} / ${j.salary_period === "year" ? "yr" : "hr"}`;
+}
+
+export function experienceLabel(years: number | null): string | null {
+  if (years === null) return null;
+  return years === 0 ? "0+ yrs exp" : `${years}+ yrs exp`;
+}
+
+export const EMPLOYMENT_LABEL: Record<string, string> = {
+  full_time: "Full-time",
+  part_time: "Part-time",
+  contract: "Contract",
+  intern: "Internship",
+  temporary: "Temporary",
+};
