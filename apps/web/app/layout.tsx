@@ -20,6 +20,8 @@ export const metadata: Metadata = {
   title: { default: "Primer", template: "%s · Primer" },
   description: "Biotech jobs the moment they're posted, and every grad deadline in one place.",
   robots: { index: false, follow: false },
+  // iPhone home-screen install: full-screen, with the name under the icon.
+  appleWebApp: { capable: true, title: "Primer", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {

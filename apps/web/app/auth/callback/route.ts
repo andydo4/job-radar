@@ -26,5 +26,5 @@ export async function GET(request: NextRequest) {
     await supabase.auth.signOut();
     return NextResponse.redirect(`${origin}/login?error=not_allowed`);
   }
-  return NextResponse.redirect(`${origin}/grad`);
+  return NextResponse.redirect(`${origin}/jobs`);
 }

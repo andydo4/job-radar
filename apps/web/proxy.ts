@@ -41,7 +41,7 @@ export async function proxy(request: NextRequest) {
   }
   if (user && path === "/login") {
     const to = request.nextUrl.clone();
-    to.pathname = "/grad";
+    to.pathname = "/jobs";
     to.search = "";
     return NextResponse.redirect(to);
   }
@@ -49,5 +49,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon.svg|manifest.webmanifest|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };

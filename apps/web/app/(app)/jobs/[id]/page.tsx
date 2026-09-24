@@ -12,6 +12,9 @@ import {
   timeAgo,
 } from "@/lib/jobs";
 import { requireUser } from "@/lib/supabase/server";
+import { getJobActions, getProfile } from "@/lib/me";
+import { qualify } from "@/lib/profile";
+import { DetailActions } from "./detail-actions";
 
 export const metadata: Metadata = { title: "Job" };
 
@@ -28,18 +31,22 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function JobPage(props: PageProps<"/jobs/[id]">) {
   const { id } = await props.params;
-  const { back } = await props.searchParams;
+  const { back, closed: justClosed } = await props.searchParams;
   // Return to the exact filtered list you came from (only ever a /jobs URL).
   const backHref = typeof back === "string" && /^\/jobs(\?|$)/.test(back) ? back : "/jobs";
   if (!/^\d+$/.test(id)) notFound();
-  const { supabase } = await requireUser();
-  const found = await getJob(supabase, Number(id));
+  const { supabase, user } = await requireUser();
+  const [found, profile, actions] = await Promise.all([getJob(supabase, Number(id)), getProfile(supabase, user.id), getJobActions(supabase)]);
   if (!found) notFound();
   const { job: j, siblings } = found;
 
   const pay = salaryLabel(j);
   const locations = [...new Set([...(j.locations.length ? j.locations : j.remote ? ["Remote"] : []), ...siblings.flatMap((s) => s.locations)])];
   const reqs = j.requirements ?? [];
+  const q = qualify(profile, j);
+  const ids = [j.id, ...siblings.map((x) => x.id)];
+  const rank = { saved: 1, applied: 2, hidden: 3 } as const;
+  const status = ids.map((x) => actions.get(x)).reduce<"saved" | "applied" | "hidden" | null>((best, st) => (st && (!best || rank[st] > rank[best]) ? st : best), null);
 
   return (
     <article className="flex flex-col gap-8">
@@ -56,18 +63,33 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
               {j.closed_at && <span className="text-danger"> · closed {timeAgo(j.closed_at)}</span>}
             </p>
           </div>
-          {!j.closed_at && (
-            <a
-              href={j.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-11 w-fit shrink-0 items-center bg-brand px-5 font-mono text-sm font-medium text-white hover:bg-brand-strong"
-            >
-              Apply on company site ↗
-            </a>
-          )}
+          <DetailActions ids={ids} initialStatus={status} applyHref={`/go/${j.id}`} closed={Boolean(j.closed_at)} />
         </div>
       </div>
+
+      {j.closed_at && (
+        <p role="status" className="border border-danger/30 bg-danger-soft px-4 py-3 font-mono text-sm leading-6 text-danger">
+          {justClosed === "1"
+            ? "The company just took this posting down, so Primer didn't send you to a dead page. "
+            : "This posting is no longer on the company's site. "}
+          It stays here if you saved it or marked it applied.
+        </p>
+      )}
+
+      {q && (
+        <div className={`flex flex-col gap-1 border px-4 py-3 font-mono text-sm ${q.level === "likely" ? "border-success/30 bg-success-soft text-success" : q.level === "stretch" ? "border-warning/30 bg-warning-soft text-warning" : "border-danger/30 bg-danger-soft text-danger"}`}>
+          <p className="font-semibold">
+            {q.level === "likely" ? "✓ You likely qualify" : q.level === "stretch" ? "A stretch, but worth a look" : q.label === "Needs PhD" ? "Needs a PhD" : "Probably out of reach for now"}
+          </p>
+          <p className="text-xs leading-5">
+            {q.reasons.length ? `${q.reasons.join(" · ")}.` : "Nothing in the posting's degree or experience asks rules you out."} Based on your{" "}
+            <Link href="/settings" className="underline">
+              profile
+            </Link>
+            .
+          </p>
+        </div>
+      )}
 
       <dl className="grid border border-line bg-surface px-5 py-2 sm:grid-cols-4 sm:py-5">
         <Fact label="Pay" value={pay ?? <span className="font-normal text-subtle">Not listed</span>} />

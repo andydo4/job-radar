@@ -1,17 +1,25 @@
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { NavTabs } from "@/components/nav-tabs";
 import { CountdownBadge } from "@/components/ui";
 import { getPrograms, upcomingDeadlines } from "@/lib/data";
 import { getLastRun, isStale, timeAgo } from "@/lib/jobs";
 import { formatDate } from "@/lib/deadlines";
+import { getProfile } from "@/lib/me";
 import { requireUser } from "@/lib/supabase/server";
 import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user } = await requireUser();
-  const [programs, lastRun] = await Promise.all([getPrograms(supabase), getLastRun(supabase).catch(() => null)]);
+  const [programs, lastRun, profile] = await Promise.all([
+    getPrograms(supabase),
+    getLastRun(supabase).catch(() => null),
+    getProfile(supabase, user.id),
+  ]);
+  // First visit: a one-minute profile so For you and the qualify badges mean something.
+  if (!profile.onboarded_at) redirect("/welcome");
   const stale = isStale(lastRun?.finished_at);
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   const next = upcomingDeadlines(programs, 3);
@@ -23,7 +31,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-dvh flex-col bg-bg">
       <header className="border-b border-line bg-surface">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-8">
-          <Link href="/grad" className="flex items-center gap-3">
+          <Link href="/jobs" className="flex items-center gap-3">
             <span className="grid size-8 place-items-center bg-brand font-mono text-sm font-bold text-white" aria-hidden>
               P
             </span>
@@ -42,14 +50,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             )}
             <ThemeToggle initial={theme} />
             <span className="hidden max-w-48 truncate font-mono text-xs text-subtle lg:block">{name}</span>
-            {avatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={avatar} alt="" className="size-8 rounded-full" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="grid size-8 place-items-center rounded-full bg-brand font-mono text-xs font-bold text-white" aria-hidden>
-                {name.slice(0, 1).toUpperCase()}
-              </span>
-            )}
+            <Link href="/settings" title="Your profile & settings" aria-label="Your profile and settings" className="shrink-0">
+              {avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatar} alt="" className="size-8 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="grid size-8 place-items-center rounded-full bg-brand font-mono text-xs font-bold text-white" aria-hidden>
+                  {name.slice(0, 1).toUpperCase()}
+                </span>
+              )}
+            </Link>
             <form action="/auth/signout" method="post">
               <button className="h-10 px-2 font-mono text-xs text-subtle hover:text-heading">Sign out</button>
             </form>

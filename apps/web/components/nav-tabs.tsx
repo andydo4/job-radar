@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/grad", label: "Grad programs", soon: false },
   { href: "/jobs", label: "Jobs", soon: false },
+  { href: "/grad", label: "Grad programs", soon: false },
+  { href: "/settings", label: "Settings", soon: false },
 ];
 
 export function NavTabs() {
