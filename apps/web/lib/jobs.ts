@@ -55,7 +55,12 @@ export interface JobFilters {
   pay?: boolean;
   /** Hide contract / temporary roles. */
   noContract?: boolean;
+  /** Only this company (companies.id). */
+  company?: string;
+  sort?: SortKey;
 }
+
+export type SortKey = "new" | "company" | "pay";
 
 const COLUMNS =
   "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, company:companies(name, segment)";
@@ -76,16 +81,10 @@ const LEVELS = ["intern", "entry", "unspecified"];
 const NEW_WINDOW_DAYS = 14;
 export const NEW_BADGE_HOURS = 48;
 
-export async function getJobs(supabase: SupabaseClient, opts: JobFilters): Promise<{ groups: JobGroup[]; total: number }> {
-  let q = supabase
-    .from("jobs")
-    .select(COLUMNS)
-    .is("closed_at", null)
-    .eq("is_us", true)
-    .in("seniority", LEVELS)
-    .neq("role_family", "other")
-    .order("first_seen_at", { ascending: false })
-    .limit(400);
+/** Filters shared by the job list and the company dropdown (everything except the company itself). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function applyFilters<Q extends { is: any; eq: any; in: any; neq: any; gte: any; or: any; not: any }>(q: Q, opts: JobFilters): Q {
+  q = q.is("closed_at", null).eq("is_us", true).in("seniority", LEVELS).neq("role_family", "other");
   if (opts.view === "new") {
     q = q.eq("is_backlog", false).gte("first_seen_at", new Date(Date.now() - NEW_WINDOW_DAYS * 86_400_000).toISOString());
   }
@@ -95,6 +94,20 @@ export async function getJobs(supabase: SupabaseClient, opts: JobFilters): Promi
   if (opts.degree === "ms") q = q.or("degree_min.is.null,degree_min.in.(bs,ms)");
   if (opts.pay) q = q.not("salary_min", "is", null);
   if (opts.noContract) q = q.or("employment_type.is.null,employment_type.not.in.(contract,temporary)");
+  return q;
+}
+
+/** Yearly pay for sorting (hourly x 2,080 working hours). */
+function annualMax(j: JobRow): number {
+  if (j.salary_max === null || !j.salary_period) return -1;
+  return Number(j.salary_max) * (j.salary_period === "hour" ? 2080 : 1);
+}
+
+export async function getJobs(supabase: SupabaseClient, opts: JobFilters): Promise<{ groups: JobGroup[]; total: number }> {
+  let q = applyFilters(supabase.from("jobs").select(COLUMNS), opts)
+    .order("first_seen_at", { ascending: false })
+    .limit(800);
+  if (opts.company) q = q.eq("company_id", opts.company);
 
   const { data, error } = await q;
   if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
@@ -120,11 +133,17 @@ export async function getJobs(supabase: SupabaseClient, opts: JobFilters): Promi
     }
   }
   // Newest first; within the same hour, Boston/NYC before the rest.
-  const sorted = [...groups.values()].sort((a, b) => {
+  const newest = (a: JobGroup, b: JobGroup) => {
     const ha = Math.floor(new Date(a.lead.first_seen_at).getTime() / 3_600_000);
     const hb = Math.floor(new Date(b.lead.first_seen_at).getTime() / 3_600_000);
     if (ha !== hb) return hb - ha;
     return (a.lead.metro_tier ?? 9) - (b.lead.metro_tier ?? 9);
+  };
+  const name = (g: JobGroup) => (g.lead.company?.name ?? g.lead.company_id).toLowerCase();
+  const sorted = [...groups.values()].sort((a, b) => {
+    if (opts.sort === "company") return name(a).localeCompare(name(b)) || newest(a, b);
+    if (opts.sort === "pay") return annualMax(b.lead) - annualMax(a.lead) || newest(a, b);
+    return newest(a, b);
   });
   return { groups: sorted, total: rows.length };
 }
@@ -207,3 +226,22 @@ export const EMPLOYMENT_LABEL: Record<string, string> = {
   intern: "Internship",
   temporary: "Temporary",
 };
+
+/** Companies with at least one job under the current filters, for the Company dropdown. */
+export async function getCompanyCounts(supabase: SupabaseClient, opts: JobFilters): Promise<{ id: string; name: string; count: number }[]> {
+  const { data } = await applyFilters(supabase.from("jobs").select("company_id, dedupe_key, company:companies(name)"), opts).limit(5000);
+  const byId = new Map<string, { id: string; name: string; roles: Set<string> }>();
+  for (const r of (data ?? []) as unknown as { company_id: string; dedupe_key: string; company: { name: string } | null }[]) {
+    const e = byId.get(r.company_id) ?? { id: r.company_id, name: r.company?.name ?? r.company_id, roles: new Set<string>() };
+    e.roles.add(r.dedupe_key);
+    byId.set(r.company_id, e);
+  }
+  return [...byId.values()]
+    .map((e) => ({ id: e.id, name: e.name, count: e.roles.size }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export async function getDescription(supabase: SupabaseClient, id: number): Promise<string | null> {
+  const { data } = await supabase.from("jobs").select("description_text").eq("id", id).maybeSingle();
+  return (data as { description_text: string | null } | null)?.description_text ?? null;
+}

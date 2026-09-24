@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui";
+import { Description } from "@/components/job-description";
 import {
   EMPLOYMENT_LABEL,
   FAMILY_LABEL,
@@ -16,43 +17,6 @@ export const metadata: Metadata = { title: "Job" };
 
 const LEVEL_LABEL: Record<string, string> = { intern: "Intern", entry: "Entry level", unspecified: "Not stated", mid: "Mid level", senior: "Senior" };
 
-/** Render the stored plain-text description: "- " lines become bullets, the rest paragraphs. */
-function Description({ text }: { text: string }) {
-  const blocks: { type: "p" | "ul"; lines: string[] }[] = [];
-  for (const raw of text.split(/\n+/)) {
-    const line = raw.trim();
-    if (!line) continue;
-    const bullet = /^(?:[-*•·▪◦]|\d+[.)])\s+/.test(line);
-    const clean = line.replace(/^(?:[-*•·▪◦]|\d+[.)])\s+/, "");
-    const last = blocks[blocks.length - 1];
-    if (bullet) {
-      if (last?.type === "ul") last.lines.push(clean);
-      else blocks.push({ type: "ul", lines: [clean] });
-    } else blocks.push({ type: "p", lines: [line] });
-  }
-  return (
-    <div className="flex max-w-3xl flex-col gap-3">
-      {blocks.map((b, i) =>
-        b.type === "ul" ? (
-          <ul key={i} className="flex list-disc flex-col gap-1.5 pl-5 font-mono text-sm leading-6 text-body marker:text-subtle">
-            {b.lines.map((l, k) => (
-              <li key={k}>{l}</li>
-            ))}
-          </ul>
-        ) : b.lines[0]!.length < 70 && !/[.!?]$/.test(b.lines[0]!) ? (
-          <h3 key={i} className="mt-2 font-mono text-sm font-semibold text-heading">
-            {b.lines[0]}
-          </h3>
-        ) : (
-          <p key={i} className="font-mono text-sm leading-6 text-body">
-            {b.lines[0]}
-          </p>
-        ),
-      )}
-    </div>
-  );
-}
-
 function Fact({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-1 border-b border-line py-3 last:border-b-0 sm:border-b-0 sm:border-r sm:px-5 sm:py-0 sm:first:pl-0 sm:last:border-r-0">
@@ -64,6 +28,9 @@ function Fact({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default async function JobPage(props: PageProps<"/jobs/[id]">) {
   const { id } = await props.params;
+  const { back } = await props.searchParams;
+  // Return to the exact filtered list you came from (only ever a /jobs URL).
+  const backHref = typeof back === "string" && /^\/jobs(\?|$)/.test(back) ? back : "/jobs";
   if (!/^\d+$/.test(id)) notFound();
   const { supabase } = await requireUser();
   const found = await getJob(supabase, Number(id));
@@ -77,8 +44,8 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
   return (
     <article className="flex flex-col gap-8">
       <div className="flex flex-col gap-4">
-        <Link href="/jobs" className="w-fit font-mono text-xs text-link hover:underline">
-          ← All jobs
+        <Link href={backHref} className="w-fit font-mono text-xs text-link hover:underline">
+          ← Back to jobs
         </Link>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">

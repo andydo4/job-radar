@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Fragment } from "react";
 import { Badge, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import {
   EMPLOYMENT_LABEL,
@@ -8,13 +9,17 @@ import {
   TIER_LABEL,
   experienceLabel,
   getCompanyCount,
+  getCompanyCounts,
   getJobs,
   getLastRun,
   salaryLabel,
   timeAgo,
   type JobFilters,
   type JobGroup,
+  type SortKey,
 } from "@/lib/jobs";
+import { CompanySelect } from "./company-select";
+import { JobDetails } from "./job-details";
 import { requireUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -31,6 +36,8 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): JobFil
     degree: one("degree") === "bs" || one("degree") === "ms" ? (one("degree") as "bs" | "ms") : undefined,
     pay: one("pay") === "1",
     noContract: one("contract") === "hide",
+    company: /^[a-z0-9-]{1,80}$/.test(one("company") ?? "") ? one("company") : undefined,
+    sort: (["company", "pay"] as const).find((k) => k === one("sort")) as SortKey | undefined,
   };
 }
 
@@ -44,8 +51,15 @@ function href(f: JobFilters, change: Partial<JobFilters>) {
   if (n.degree) p.set("degree", n.degree);
   if (n.pay) p.set("pay", "1");
   if (n.noContract) p.set("contract", "hide");
+  if (n.company) p.set("company", n.company);
+  if (n.sort && n.sort !== "new") p.set("sort", n.sort);
   const s = p.toString();
   return s ? `/jobs?${s}` : "/jobs";
+}
+
+/** Link to a job's own page that remembers the filtered list you came from. */
+function jobHref(id: number, listHref: string) {
+  return `/jobs/${id}?back=${encodeURIComponent(listHref)}`;
 }
 
 function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
@@ -72,7 +86,7 @@ function FilterRow({ label, children }: { label: string; children: React.ReactNo
   );
 }
 
-function JobCard({ g }: { g: JobGroup }) {
+function JobCard({ g, listHref }: { g: JobGroup; listHref: string }) {
   const j = g.lead;
   const locs = g.locations;
   const locText = locs.length === 0 ? "Location not listed" : locs.length > 2 ? `${locs.slice(0, 2).join(" · ")} +${locs.length - 2}` : locs.join(" · ");
@@ -98,7 +112,7 @@ function JobCard({ g }: { g: JobGroup }) {
               </>
             )}
           </div>
-          <Link href={`/jobs/${j.id}`} className="mt-1 block font-mono text-[15px] leading-6 font-semibold text-heading hover:text-link">
+          <Link href={jobHref(j.id, listHref)} className="mt-1 block font-mono text-[15px] leading-6 font-semibold text-heading hover:text-link">
             {j.title}
             {g.listings.length > 1 && <span className="ml-2 font-normal text-subtle">({g.listings.length} listings)</span>}
           </Link>
@@ -126,30 +140,7 @@ function JobCard({ g }: { g: JobGroup }) {
         </div>
       </div>
 
-      {reqs.length > 0 ? (
-        <details className="group mt-3">
-          <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 font-mono text-xs font-medium text-link select-none hover:underline">
-            <span className="transition-transform duration-100 group-open:rotate-90" aria-hidden>
-              ▸
-            </span>
-            Requirements ({reqs.length})
-          </summary>
-          <ul className="mt-2 flex max-w-3xl flex-col gap-1.5 border-l-2 border-line pl-4">
-            {reqs.map((r, i) => (
-              <li key={i} className="font-mono text-xs leading-5 text-body">
-                {r}
-              </li>
-            ))}
-          </ul>
-          <Link href={`/jobs/${j.id}`} className="mt-2 ml-4 inline-block font-mono text-xs text-link hover:underline">
-            Full description →
-          </Link>
-        </details>
-      ) : (
-        <Link href={`/jobs/${j.id}`} className="mt-3 inline-block font-mono text-xs text-link hover:underline">
-          Full description →
-        </Link>
-      )}
+      <JobDetails id={j.id} requirements={reqs} pageHref={jobHref(j.id, listHref)} applyUrl={j.url} />
     </li>
   );
 }
@@ -158,9 +149,16 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   const f = parseFilters(await props.searchParams);
 
   const { supabase } = await requireUser();
-  const [{ groups }, lastRun, companyCount] = await Promise.all([getJobs(supabase, f), getLastRun(supabase), getCompanyCount(supabase)]);
+  const [{ groups }, lastRun, companyCount, companies] = await Promise.all([
+    getJobs(supabase, f),
+    getLastRun(supabase),
+    getCompanyCount(supabase),
+    getCompanyCounts(supabase, f),
+  ]);
+  const listHref = href(f, {});
+  const baseQuery = href(f, { company: undefined }).replace(/^\/jobs\??/, "");
   const newToday = groups.filter((g) => g.isNew).length;
-  const filtered = f.exp !== undefined || f.degree || f.pay || f.noContract || f.family;
+  const filtered = f.exp !== undefined || f.degree || f.pay || f.noContract || f.family || f.company;
 
   return (
     <div className="flex flex-col gap-8">
@@ -199,6 +197,20 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
             </Chip>
           ))}
         </FilterRow>
+        <FilterRow label="Company">
+          <CompanySelect companies={companies} value={f.company} baseQuery={baseQuery} />
+        </FilterRow>
+        <FilterRow label="Sort">
+          <Chip href={href(f, { sort: undefined })} active={!f.sort}>
+            Newest first
+          </Chip>
+          <Chip href={href(f, { sort: "company" })} active={f.sort === "company"}>
+            Company A–Z
+          </Chip>
+          <Chip href={href(f, { sort: "pay" })} active={f.sort === "pay"}>
+            Highest pay
+          </Chip>
+        </FilterRow>
         <FilterRow label="Experience">
           <Chip href={href(f, { exp: undefined })} active={f.exp === undefined}>
             Any
@@ -228,7 +240,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
             {f.noContract ? "✓ " : ""}Hide contract
           </Chip>
           {filtered && (
-            <Link href={href({ view: f.view }, {})} scroll={false} className="inline-flex h-9 items-center px-2 font-mono text-xs text-link hover:underline">
+            <Link href={href({ view: f.view, sort: f.sort }, {})} scroll={false} className="inline-flex h-9 items-center px-2 font-mono text-xs text-link hover:underline">
               Clear filters
             </Link>
           )}
@@ -258,9 +270,25 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
       ) : (
         <section aria-label="Jobs" className="border border-line bg-surface">
           <ul>
-            {groups.map((g) => (
-              <JobCard key={g.key} g={g} />
-            ))}
+            {groups.map((g, i) => {
+              const name = g.lead.company?.name ?? g.lead.company_id;
+              const prev = groups[i - 1];
+              const header = f.sort === "company" && (!prev || (prev.lead.company?.name ?? prev.lead.company_id) !== name);
+              const count = header ? groups.filter((x) => x.lead.company_id === g.lead.company_id).length : 0;
+              return (
+                <Fragment key={g.key}>
+                  {header && (
+                    <li className="flex items-baseline justify-between border-b border-line bg-muted px-4 py-2 sm:px-6">
+                      <span className="font-mono text-sm font-semibold text-heading">{name}</span>
+                      <span className="font-mono text-xs text-subtle">
+                        {count} role{count === 1 ? "" : "s"}
+                      </span>
+                    </li>
+                  )}
+                  <JobCard g={g} listHref={listHref} />
+                </Fragment>
+              );
+            })}
           </ul>
         </section>
       )}
