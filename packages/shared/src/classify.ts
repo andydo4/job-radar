@@ -152,6 +152,9 @@ export function stateOf(loc: string): string | null {
   // "Boston, MA", "Boston, MA, US", "US-MA-Boston", "Andover, Massachusetts"
   const abbr = loc.match(/(?:,\s*|\bUS-|\bUSA?\s*-\s*)([A-Z]{2})\b/);
   if (abbr && abbr[1] && abbr[1] in STATES) return abbr[1];
+  // "Indianapolis IN", "US, Titusville NJ": a city then a state code, no comma.
+  const spaced = loc.match(/\b[A-Z][A-Za-z.'-]*\s+([A-Z]{2})(?:\s+\d{5})?\s*$/);
+  if (spaced && spaced[1] && spaced[1] in STATES) return spaced[1];
   const lower = loc.toLowerCase();
   // Longest names first so "west virginia" wins over "virginia".
   const byLength = Object.entries(STATES).sort((a, b) => b[1].length - a[1].length);
@@ -285,6 +288,9 @@ function placeOfChunk(chunk: string): Place | null {
     const code = codeOf(parts[parts.length - 1]!);
     if (code) return { state: code, city: cleanCity(parts[parts.length - 2]!) || null };
   }
+  // "Indianapolis IN" (Lilly writes "US, Indianapolis IN")
+  const spaced = parts[parts.length - 1]?.match(/^(.*[a-z].*?)\s+([A-Z]{2})$/);
+  if (spaced && ABBR.has(spaced[2]!)) return { state: spaced[2]!, city: cleanCity(spaced[1]!) || null };
 
   const state = stateOf(loc);
   const city = CITY_STATE.find(([re]) => re.test(loc));

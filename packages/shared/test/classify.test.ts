@@ -180,6 +180,10 @@ describe("places for the map", () => {
     [["Newark, DE"], false, ["DE|Newark"]],
     [["Grenzach-Wyhlen, Baden-Württemberg, DE"], false, []],
     [["3 Locations"], false, []],
+    [["US, Indianapolis IN"], false, ["IN|Indianapolis"]],
+    [["Titusville NJ"], false, ["NJ|Titusville"]],
+    [["Parsippany, New Jersey, United States of America"], false, ["NJ|Parsippany"]],
+    [["US - North Carolina - Holly Springs"], false, ["NC|Holly Springs"]],
   ] as const)("%j remote=%s -> %j", (locs, remote, want) => {
     expect(placeKeys(placesOf([...locs], remote))).toEqual(want);
   });
@@ -193,5 +197,6 @@ describe("places for the map", () => {
     expect(classifyLocation(["Grenzach-Wyhlen, Baden-Württemberg, DE"], false, "DE")).toEqual({ isUS: false, metroTier: null });
     expect(classifyLocation(["Whippany, New Jersey, US"], false, "US").isUS).toBe(true);
     expect(stateOf("Wilmington, DE")).toBe("DE");
+    expect(classifyLocation(["Lebanon IN"], false).isUS).toBe(true);
   });
 });

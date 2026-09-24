@@ -240,7 +240,7 @@ async function main() {
     });
     // Fill in pay / experience / requirements for older jobs, a batch per run.
     const bf = await backfillDetails(db, makeCtx(globalThis.fetch as unknown as FetchFn), companies, summary.fetched, {
-      limit: Number(process.env.DETAILS_BACKFILL_LIMIT ?? 300),
+      limit: Number(process.env.DETAILS_BACKFILL_LIMIT ?? 1000),
       maxWorkdayFetches: Number(process.env.DETAILS_WORKDAY_FETCHES ?? 120),
     });
     console.log(`Details: ${bf.updated} jobs updated (${bf.fetchedDetails} Workday detail pages)${bf.remaining ? ", more next run" : ""}.`);
