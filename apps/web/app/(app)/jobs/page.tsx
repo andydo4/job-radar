@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Fragment } from "react";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { JOBS_QUERY_COOKIE, validJobsQuery } from "@/lib/remember";
 import { Badge, EmptyState, PageHeader } from "@/components/ui";
 import { CompanyPrefButtons } from "@/components/company-pref-button";
 import {
@@ -30,6 +33,7 @@ import { CompanySelect } from "./company-select";
 import { FiltersShell, SortSelect } from "./filters-shell";
 import { JobCardShell } from "./job-card-shell";
 import { JobDetails } from "./job-details";
+import { RememberFilters } from "./remember-filters";
 import { requireUser } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Jobs" };
@@ -60,7 +64,8 @@ function parseFilters(sp: Record<string, string | string[] | undefined>): JobFil
 function href(f: JobFilters, change: Partial<JobFilters>) {
   const n = { ...f, ...change };
   const p = new URLSearchParams();
-  if (n.view !== "foryou") p.set("view", n.view);
+  // Always explicit, so a bare /jobs means "bring back my last filters".
+  p.set("view", n.view);
   if (n.since) p.set("since", n.since);
   if (n.fit) p.set("fit", n.fit);
   if (n.starred) p.set("starred", "1");
@@ -254,6 +259,12 @@ const VIEW_TITLE: Record<View, string> = {
 
 export default async function JobsPage(props: PageProps<"/jobs">) {
   const sp = await props.searchParams;
+  // Bare /jobs (nav tab, home-screen app, after sign-in): restore the filters you last used here.
+  const filterKeys = Object.keys(sp).filter((k) => k !== "saved");
+  if (filterKeys.length === 0) {
+    const last = (await cookies()).get(JOBS_QUERY_COOKIE)?.value;
+    if (validJobsQuery(last)) redirect(`/jobs?${last}${sp.saved === "profile" ? "&saved=profile" : ""}`);
+  }
   const f = parseFilters(sp);
 
   const { supabase, user } = await requireUser();
@@ -303,6 +314,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
 
   return (
     <div className="flex flex-col gap-6">
+      <RememberFilters query={listHref.replace(/^\/jobs\??/, "")} />
       {sp.saved === "profile" && (
         <p role="status" className="border border-success/30 bg-success-soft px-4 py-3 font-mono text-sm text-success">
           Profile saved. For you now uses it.
@@ -353,11 +365,9 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
           <Tab href={href({ view: "applied" }, {})} active={f.view === "applied"}>
             Applied{counts.applied ? <span className="opacity-70">{counts.applied}</span> : null}
           </Tab>
-          {(hiddenCount > 0 || f.view === "hidden") && (
-            <Tab href={href({ view: "hidden" }, {})} active={f.view === "hidden"}>
-              Hidden<span className="opacity-70">{hiddenCount}</span>
-            </Tab>
-          )}
+          <Tab href={href({ view: "hidden" }, {})} active={f.view === "hidden"}>
+            Hidden{hiddenCount ? <span className="opacity-70">{hiddenCount}</span> : null}
+          </Tab>
         </nav>
 
         {!marks ? (

@@ -146,3 +146,11 @@ body {
 .tabular {
   font-variant-numeric: tabular-nums;
 }
+
+/* Native dropdown lists: some browsers (Chrome on Windows) draw the open list with a light
+   background but inherit the select's text color. Give options explicit theme colors. */
+select option,
+select optgroup {
+  background-color: var(--surface);
+  color: var(--heading);
+}

@@ -57,7 +57,7 @@ export function SortSelect({ options }: { options: { label: string; href: string
       <select
         value={current.href}
         onChange={(e) => router.push(e.target.value, { scroll: false })}
-        className="h-full bg-transparent pr-2 font-medium text-heading"
+        className="h-full bg-surface pr-2 font-medium text-heading"
       >
         {options.map((o) => (
           <option key={o.href} value={o.href}>

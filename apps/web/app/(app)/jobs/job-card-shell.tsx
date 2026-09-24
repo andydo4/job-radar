@@ -55,7 +55,7 @@ export function JobCardShell({
   if (status === "hidden" && !hiddenView) {
     return (
       <li className="flex items-center justify-between gap-4 border-b border-line bg-muted px-4 py-3 font-mono text-xs text-subtle last:border-b-0 sm:px-6">
-        <span>Hidden. It won&apos;t show up in your lists again.</span>
+        <span>Hidden from your lists. You can bring it back any time from the Hidden tab.</span>
         <button type="button" onClick={() => mark(null)} className="font-medium text-link hover:underline" disabled={pending}>
           Undo
         </button>
@@ -107,7 +107,7 @@ export function JobCardShell({
               onClick={() => mark(status === "hidden" ? null : "hidden")}
               className={`${small} ${idle}`}
               disabled={pending}
-              title={status === "hidden" ? "Show this job in your lists again" : "Never show this job again"}
+              title={status === "hidden" ? "Show this job in your lists again" : "Hide from your lists (undo any time from the Hidden tab)"}
             >
               {status === "hidden" ? "Unhide" : "Hide"}
             </button>
