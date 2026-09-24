@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { allowedDegrees, maxExperience, monthsUntil, parseProfileForm, qualify } from "../lib/profile";
+import { allowedDegrees, maxExperience, monthsUntil, parseProfileForm, qualify, timelineTag } from "../lib/profile";
 import { interpretLiveCheck, liveCheck, liveCheckUrl } from "../lib/live-check";
 
 const NOW = new Date("2026-09-23T12:00:00Z");
@@ -167,5 +167,18 @@ describe("graduation timing", () => {
     for (const [k, v] of [["degree", "bs"], ["families", "research"], ["metro_tiers", "1"], ["after_grad", "maybe"]]) f.append(k, v!);
     const r = parseProfileForm(f);
     expect(r.ok && r.data.after_grad).toBe("maybe");
+  });
+});
+
+describe("timelineTag", () => {
+  const me = { grad_month: "2027-05-01", after_grad: "work" as const };
+  const base = { degree_min: null, experience_min_years: null };
+  it("answers at a glance", () => {
+    expect(timelineTag(me, { ...base, seniority: "entry" })!.label).toBe("Full-time · after you graduate");
+    expect(timelineTag(me, { ...base, seniority: "entry", start_date: "2027-01-10" })!.label).toBe("Starts Jan 2027, before you graduate");
+    expect(timelineTag(me, { ...base, seniority: "intern", term: "Spring 2027", remote: true })!.label).toBe("During undergrad · Remote");
+    expect(timelineTag(me, { ...base, seniority: "intern", term: "Fall 2026", employment_type: "part_time", locations: ["Boston, MA"] })!.label).toBe("Part-time During undergrad · On-site");
+    expect(timelineTag(me, { ...base, seniority: "intern", term: "Summer 2027" })!.label).toBe("Internship after you graduate");
+    expect(timelineTag({ ...me, after_grad: "maybe" }, { ...base, seniority: "intern", term: "Summer 2027" })!.label).toBe("Grad-school internship");
   });
 });

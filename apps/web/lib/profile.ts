@@ -303,3 +303,43 @@ export function maxExperience(years: number | null, degree: UserDegree | null): 
   const credit = degreeRank(degree) >= 3 ? 2 : degreeRank(degree) === 2 ? 1 : 0;
   return years + credit + 1;
 }
+
+// ---------------------------------------------------------------------------
+// "Where does this fit in my timeline?" (one tag on every card)
+// ---------------------------------------------------------------------------
+
+export interface TimelineTag {
+  label: string;
+  tone: "success" | "brand" | "warning" | "neutral";
+}
+
+/**
+ * One glance answer, from your graduation month:
+ * - full-time: can you start after you graduate?
+ * - internship/co-op before you graduate: "During undergrad", plus remote or on-site
+ * - internship/co-op after you graduate: only if you go to grad school
+ */
+export function timelineTag(
+  p: Pick<Profile, "grad_month"> & Partial<Pick<Profile, "after_grad">>,
+  j: QualifyJob & { remote?: boolean; locations?: string[]; employment_type?: string | null },
+): TimelineTag | null {
+  if (!p.grad_month) return null;
+  const grad = ym(p.grad_month);
+  const isIntern = j.seniority === "intern" || j.employment_type === "intern";
+  const where = j.remote || j.locations?.some((l) => /remote/i.test(l)) ? "Remote" : "On-site";
+  const partTime = j.employment_type === "part_time" ? "Part-time " : "";
+  if (!isIntern) {
+    const start = j.start_date ? ym(j.start_date) : null;
+    if (j.grad_to && ym(j.grad_to) < grad) return { label: "For earlier grads", tone: "neutral" };
+    if (start && start < grad) return { label: `Starts ${monthLabel(start + "-01")}, before you graduate`, tone: "warning" };
+    return { label: "Full-time · after you graduate", tone: "success" };
+  }
+  const start = internStart(j);
+  if (start && start > grad) {
+    return p.after_grad === "work"
+      ? { label: "Internship after you graduate", tone: "neutral" }
+      : { label: "Grad-school internship", tone: "warning" };
+  }
+  if (start) return { label: `${partTime}During undergrad · ${where}`, tone: "brand" };
+  return { label: `${partTime}Internship · ${where} · timing not stated`, tone: "neutral" };
+}

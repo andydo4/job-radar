@@ -28,7 +28,7 @@ import {
   type View,
 } from "@/lib/jobs";
 import { getCompanyPrefs, getJobActions, getProfile, noteVisit, type CompanyPref } from "@/lib/me";
-import { qualify, type Profile } from "@/lib/profile";
+import { qualify, timelineTag, type Profile } from "@/lib/profile";
 import { CompanySelect } from "./company-select";
 import { FiltersShell, SortSelect } from "./filters-shell";
 import { JobCardShell } from "./job-card-shell";
@@ -189,6 +189,7 @@ function JobCard({
   const exp = experienceLabel(j.experience_min_years);
   const type = j.employment_type && j.employment_type !== "full_time" ? EMPLOYMENT_LABEL[j.employment_type] : null;
   const q = qualify(profile, j);
+  const when = timelineTag(profile, { ...j, locations: g.locations });
   const page = jobHref(j.id, listHref);
 
   return (
@@ -221,8 +222,13 @@ function JobCard({
       <p className="mt-0.5 truncate font-mono text-xs text-subtle">{locText}</p>
 
       {/* The facts people decide on first */}
-      {(pay || timing || deadline || q) && (
+      {(when || pay || timing || deadline || q) && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {when && (
+            <Badge tone={when.tone} className="font-semibold">
+              {when.label}
+            </Badge>
+          )}
           {pay && (
             <Badge tone="success" className="font-semibold">
               {pay}
