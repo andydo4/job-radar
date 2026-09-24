@@ -51,7 +51,7 @@ const TONES: Record<Tone, string> = {
   success: "border-success/30 bg-success-soft text-success",
   warning: "border-warning/30 bg-warning-soft text-warning",
   danger: "border-danger/30 bg-danger-soft text-danger",
-  new: "border-transparent bg-lime text-[#0a0a23]",
+  new: "border-transparent bg-lime font-medium text-on-lime",
 };
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {

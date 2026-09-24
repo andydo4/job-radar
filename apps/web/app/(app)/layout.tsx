@@ -1,13 +1,19 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { NavTabs } from "@/components/nav-tabs";
 import { CountdownBadge } from "@/components/ui";
 import { getPrograms, upcomingDeadlines } from "@/lib/data";
+import { getLastRun, isStale, timeAgo } from "@/lib/jobs";
 import { formatDate } from "@/lib/deadlines";
 import { requireUser } from "@/lib/supabase/server";
+import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const { supabase, user } = await requireUser();
-  const programs = await getPrograms(supabase);
+  const [programs, lastRun] = await Promise.all([getPrograms(supabase), getLastRun(supabase).catch(() => null)]);
+  const stale = isStale(lastRun?.finished_at);
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   const next = upcomingDeadlines(programs, 3);
 
   const name = (user.user_metadata?.full_name as string | undefined) ?? user.email ?? "You";
@@ -24,7 +30,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <span className="font-mono text-base font-semibold text-heading">Primer</span>
           </Link>
           <div className="flex items-center gap-3">
-            <span className="hidden max-w-48 truncate font-mono text-xs text-subtle sm:block">{name}</span>
+            {lastRun && (
+              <span
+                title={`Job checker last finished ${new Date(lastRun.finished_at).toLocaleString()}`}
+                className={`hidden items-center gap-1.5 font-mono text-xs md:inline-flex ${stale ? "text-danger" : "text-subtle"}`}
+              >
+                <span aria-hidden className={`size-1.5 rounded-full ${stale ? "bg-danger" : "bg-success"}`} />
+                {stale ? "Checker stalled · " : "Checked "}
+                {timeAgo(lastRun.finished_at)}
+              </span>
+            )}
+            <ThemeToggle initial={theme} />
+            <span className="hidden max-w-48 truncate font-mono text-xs text-subtle lg:block">{name}</span>
             {avatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={avatar} alt="" className="size-8 rounded-full" referrerPolicy="no-referrer" />

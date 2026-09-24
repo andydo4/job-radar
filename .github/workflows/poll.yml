@@ -45,6 +45,8 @@ jobs:
         env:
           WORKDAY_PARTIAL_PAGES: "3"
           FULL_SWEEP_HOURS: "3"
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
 
       - name: Save seen-jobs state
         if: always()

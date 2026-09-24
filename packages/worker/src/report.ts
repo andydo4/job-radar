@@ -24,6 +24,10 @@ export interface RunSummary {
   matches: ClassifiedJob[];
   /** All new jobs, including ones the filter hid. */
   allNew: ClassifiedJob[];
+  /** Every job fetched this run, classified (used to save first-seen jobs to the database). */
+  fetched: Map<string, ClassifiedJob[]>;
+  /** company::externalId keys of genuinely new (non-backlog) jobs. */
+  newKeys: Set<string>;
 }
 
 const TIER_LABEL: Record<string, string> = { "1": "Boston / NYC", "2": "East & West Coast / US remote", "3": "Rest of US", null: "Location unknown" };

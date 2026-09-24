@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist_Mono, Playfair_Display } from "next/font/google";
+import { cookies } from "next/headers";
+import { THEME_COOKIE, parseTheme } from "@/lib/theme";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -24,9 +26,16 @@ export const viewport: Viewport = {
   themeColor: "#0000f2",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // "light" / "dark" pins the theme; no cookie = follow the device (prefers-color-scheme).
+  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   return (
-    <html lang="en" className={`${geistMono.variable} ${playfair.variable} h-full antialiased`}>
+    <html
+      lang="en"
+      data-theme={theme === "system" ? undefined : theme}
+      suppressHydrationWarning
+      className={`${geistMono.variable} ${playfair.variable} h-full antialiased`}
+    >
       <body className="min-h-full">{children}</body>
     </html>
   );

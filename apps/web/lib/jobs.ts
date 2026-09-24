@@ -1,0 +1,138 @@
+import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+export const FAMILIES = [
+  ["research", "Research"],
+  ["process", "Process & mfg"],
+  ["quality", "Quality"],
+  ["clinical", "Clinical"],
+  ["regulatory", "Regulatory"],
+  ["compbio", "Comp bio"],
+  ["engineering", "Engineering"],
+  ["commercial", "Commercial"],
+  ["consulting", "Consulting"],
+  ["vc", "Venture"],
+] as const;
+export type Family = (typeof FAMILIES)[number][0];
+export const FAMILY_LABEL = Object.fromEntries(FAMILIES) as Record<string, string>;
+
+export const TIER_LABEL: Record<number, string> = { 1: "Boston / NYC", 2: "Coasts / remote", 3: "Other US" };
+
+export interface JobRow {
+  id: number;
+  company_id: string;
+  title: string;
+  url: string;
+  locations: string[];
+  remote: boolean;
+  role_family: string;
+  seniority: string;
+  degree_min: string | null;
+  metro_tier: number | null;
+  is_backlog: boolean;
+  first_seen_at: string;
+  last_seen_at: string;
+  posted_at: string | null;
+  posted_text: string | null;
+  dedupe_key: string;
+  company: { name: string; segment: string } | null;
+}
+
+/** One role, possibly posted as several listings (one per city). */
+export interface JobGroup {
+  key: string;
+  lead: JobRow;
+  listings: JobRow[];
+  locations: string[];
+  isNew: boolean;
+}
+
+export type View = "new" | "all";
+
+/** Mirrors DEFAULT_FILTER in packages/shared/src/filter.ts (until each person sets their own in Phase 2). */
+const LEVELS = ["intern", "entry", "unspecified"];
+const NEW_WINDOW_DAYS = 14;
+export const NEW_BADGE_HOURS = 48;
+
+export async function getJobs(
+  supabase: SupabaseClient,
+  opts: { view: View; family?: string },
+): Promise<{ groups: JobGroup[]; total: number }> {
+  let q = supabase
+    .from("jobs")
+    .select(
+      "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, company:companies(name, segment)",
+    )
+    .is("closed_at", null)
+    .eq("is_us", true)
+    .in("seniority", LEVELS)
+    .neq("role_family", "other")
+    .order("first_seen_at", { ascending: false })
+    .limit(400);
+  if (opts.view === "new") {
+    q = q.eq("is_backlog", false).gte("first_seen_at", new Date(Date.now() - NEW_WINDOW_DAYS * 86_400_000).toISOString());
+  }
+  if (opts.family) q = q.eq("role_family", opts.family);
+
+  const { data, error } = await q;
+  if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+  const rows = (data ?? []) as unknown as JobRow[];
+
+  const groups = new Map<string, JobGroup>();
+  const badgeCutoff = Date.now() - NEW_BADGE_HOURS * 3_600_000;
+  for (const r of rows) {
+    const g = groups.get(r.dedupe_key);
+    const locs = r.locations.length ? r.locations : r.remote ? ["Remote"] : [];
+    if (g) {
+      g.listings.push(r);
+      for (const l of locs) if (!g.locations.includes(l)) g.locations.push(l);
+      if ((r.metro_tier ?? 9) < (g.lead.metro_tier ?? 9)) g.lead = r;
+    } else {
+      groups.set(r.dedupe_key, {
+        key: r.dedupe_key,
+        lead: r,
+        listings: [r],
+        locations: [...locs],
+        isNew: !r.is_backlog && new Date(r.first_seen_at).getTime() >= badgeCutoff,
+      });
+    }
+  }
+  // Newest first; within the same hour, Boston/NYC before the rest.
+  const sorted = [...groups.values()].sort((a, b) => {
+    const ha = Math.floor(new Date(a.lead.first_seen_at).getTime() / 3_600_000);
+    const hb = Math.floor(new Date(b.lead.first_seen_at).getTime() / 3_600_000);
+    if (ha !== hb) return hb - ha;
+    return (a.lead.metro_tier ?? 9) - (b.lead.metro_tier ?? 9);
+  });
+  return { groups: sorted, total: rows.length };
+}
+
+export async function getLastRun(supabase: SupabaseClient): Promise<{ finished_at: string; companies_failed: number } | null> {
+  const { data } = await supabase
+    .from("poll_runs")
+    .select("finished_at, companies_failed")
+    .order("finished_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return (data as { finished_at: string; companies_failed: number } | null) ?? null;
+}
+
+export async function getCompanyCount(supabase: SupabaseClient): Promise<number> {
+  const { count } = await supabase.from("companies").select("id", { count: "exact", head: true }).eq("active", true);
+  return count ?? 0;
+}
+
+/** "just now", "6 min ago", "3 hr ago", "2 days ago" */
+export function timeAgo(iso: string, now = Date.now()): string {
+  const mins = Math.max(0, Math.round((now - new Date(iso).getTime()) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 48) return `${hrs} hr ago`;
+  return `${Math.round(hrs / 24)} days ago`;
+}
+
+/** The checker runs every 10 minutes; an hour without a finished run means something's wrong. */
+export function isStale(finishedAt: string | undefined, now = Date.now()): boolean {
+  return !finishedAt || now - new Date(finishedAt).getTime() > 60 * 60_000;
+}

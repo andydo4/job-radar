@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@job-radar/shared": "*"
+    "@job-radar/shared": "*",
+    "@supabase/supabase-js": "^2.117.1"
   }
 }

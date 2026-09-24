@@ -2,8 +2,9 @@
  * The poller. One run = fetch every active company once, diff against what we've
  * seen, and write a report of new jobs.
  *
- *   npm run poll            live run (uses state/state.json)
- *   npm run poll:dry        offline run against /fixtures (uses out/dry-state.json)
+ *   npm run poll            live run. Uses Supabase when SUPABASE_URL + SUPABASE_SECRET_KEY are set
+ *                           (GitHub Actions), otherwise state/state.json.
+ *   npm run poll:dry        offline run against /fixtures (uses out/dry-state.json, never the database)
  *   npm run poll -- --only=pfizer,gilead
  */
 import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
@@ -26,6 +27,7 @@ import { ROOT, isMain } from "./paths.ts";
 import { FIXTURE_COMPANIES, fixturesFetch, simulateNewPostings } from "./fixtures-fetch.ts";
 import { renderMarkdown, type CompanyRunResult, type RunSummary } from "./report.ts";
 import { applyFetch, loadState, needsFullSweep, recordFailure, saveState, type State } from "./store.ts";
+import { applyPlan, dbFromEnv, planPersist, stateFromDb } from "./db.ts";
 
 
 export interface PollOptions {
@@ -56,6 +58,8 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
   };
   const active = opts.companies.filter((c) => c.active);
   const allNew: ClassifiedJob[] = [];
+  const fetched = new Map<string, ClassifiedJob[]>();
+  const newKeys = new Set<string>();
 
   const results = await mapLimit(active, opts.concurrency ?? 6, async (company): Promise<CompanyRunResult> => {
     if (opts.jitterMs) await new Promise((r) => setTimeout(r, Math.random() * opts.jitterMs!));
@@ -84,7 +88,18 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
         });
         fresh = [...enriched, ...fresh.slice(max)];
       }
-      for (const j of fresh) allNew.push({ ...j, ...classifyJob(j, company) });
+      const enrichedById = new Map(fresh.map((j) => [j.externalId, j]));
+      const classified = res.jobs.map((raw) => {
+        const j = enrichedById.get(raw.externalId) ?? raw;
+        return { ...j, ...classifyJob(j, company) };
+      });
+      fetched.set(company.id, classified);
+      for (const j of classified) {
+        if (enrichedById.has(j.externalId)) {
+          allNew.push(j);
+          newKeys.add(`${company.id}::${j.externalId}`);
+        }
+      }
       return {
         company,
         ok: true,
@@ -125,6 +140,8 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
     results,
     allNew,
     matches: allNew.filter((j) => matchesFilter(j, DEFAULT_FILTER)),
+    fetched,
+    newKeys,
   };
 }
 
@@ -140,11 +157,16 @@ async function main() {
   const outDir = resolve(ROOT, "out");
   const only = arg("only")?.split(",").map((s) => s.trim());
 
-  let companies = dryRun ? FIXTURE_COMPANIES : loadCompanies(join(ROOT, "seed/companies.csv"));
-  if (only) companies = companies.filter((c) => only.includes(c.id));
+  const allCompanies = dryRun ? FIXTURE_COMPANIES : loadCompanies(join(ROOT, "seed/companies.csv"));
+  const companies = only ? allCompanies.filter((c) => only.includes(c.id)) : allCompanies;
   if (companies.length === 0) throw new Error("No companies to poll (check seed/companies.csv or --only).");
 
-  const state = loadState(statePath);
+  // Phase 1: remember jobs in Supabase when the secret is available (GitHub Actions); otherwise a local file.
+  const db = dryRun ? null : dbFromEnv();
+  const state = db ? stateFromDb(await db.loadCompanies(), await db.loadOpenJobs()) : loadState(statePath);
+  const before: State = structuredClone(state);
+  console.log(db ? "Storage: Supabase" : `Storage: ${statePath}`);
+
   const summary = await runPoll({
     companies,
     state,
@@ -157,13 +179,38 @@ async function main() {
     workdayPartialPages: Number(process.env.WORKDAY_PARTIAL_PAGES ?? 3),
     fullSweepHours: Number(process.env.FULL_SWEEP_HOURS ?? 3),
   });
-  saveState(statePath, state);
+
+  if (db) {
+    const plan = planPersist(companies, before, state, summary.fetched, summary.newKeys, summary.finishedAt);
+    const runUrl =
+      process.env.GITHUB_RUN_ID && process.env.GITHUB_REPOSITORY
+        ? `${process.env.GITHUB_SERVER_URL ?? "https://github.com"}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+        : null;
+    await applyPlan(db, plan, only ? allCompanies.map((c) => c.id) : companies.map((c) => c.id), {
+      started_at: summary.startedAt,
+      finished_at: summary.finishedAt,
+      companies_ok: summary.results.filter((r) => r.ok).length,
+      companies_failed: summary.results.filter((r) => !r.ok).length,
+      new_jobs: summary.allNew.length,
+      new_matches: summary.matches.length,
+      closed_jobs: summary.results.reduce((n, r) => n + r.closed, 0),
+      requests: summary.results.reduce((n, r) => n + r.requests, 0),
+      github_run_url: runUrl,
+    });
+    console.log(
+      `Saved to Supabase: ${plan.inserts.length} jobs inserted, ${[...plan.touches.values()].reduce((n, t) => n + t.ids.length, 0)} re-seen, ` +
+        `${[...plan.closed.values()].reduce((n, c) => n + c.length, 0)} closed.`,
+    );
+  } else {
+    saveState(statePath, state);
+  }
 
   const names = new Map(companies.map((c) => [c.id, c.name]));
   const md = renderMarkdown(summary, names);
   mkdirSync(outDir, { recursive: true });
   writeFileSync(join(outDir, "report.md"), md);
-  writeFileSync(join(outDir, "new-jobs.json"), JSON.stringify({ ...summary, results: summary.results.map((r) => ({ ...r, company: r.company.id })) }, null, 2));
+  const { fetched: _f, newKeys: _k, ...json } = summary;
+  writeFileSync(join(outDir, "new-jobs.json"), JSON.stringify({ ...json, results: summary.results.map((r) => ({ ...r, company: r.company.id })) }, null, 2));
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md);
   console.log(md);
 

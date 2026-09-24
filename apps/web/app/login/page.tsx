@@ -23,7 +23,7 @@ export default async function LoginPage(props: PageProps<"/login">) {
 
       <section className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center px-4 pb-24 sm:px-8">
         <p className="mb-6 inline-flex w-fit items-center gap-2 border border-white/25 bg-brand-strong px-2 py-1 font-mono text-xs">
-          <span className="bg-lime px-1.5 py-0.5 font-medium text-heading">New</span>
+          <span className="bg-lime px-1.5 py-0.5 font-medium text-on-lime">New</span>
           Grad deadlines, all in one place
         </p>
         <h1 className="max-w-3xl font-serif text-[38px] font-bold leading-[44px] tracking-[-0.5px] sm:text-[54px] sm:leading-[60px]">

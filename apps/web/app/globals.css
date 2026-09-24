@@ -24,8 +24,9 @@
   color-scheme: light;
 }
 
+/* Dark theme: follows the device unless someone picked Light or Dark (data-theme on <html>, saved in a cookie). */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #07071c;
     --surface: #0d0d26;
     --surface-card: #11112e;
@@ -48,6 +49,28 @@
   }
 }
 
+:root[data-theme="dark"] {
+  --bg: #07071c;
+  --surface: #0d0d26;
+  --surface-card: #11112e;
+  --surface-muted: #171736;
+  --heading: #f4f5fb;
+  --body: #e6e8f5;
+  --body-subtle: #9c9fb8;
+  --border: #26264a;
+  --border-strong: #3a3a66;
+  --link: #a5aaff;
+  --brand-soft: #1a1a4a;
+  --brand-softer: #12123a;
+  --success: #4ade80;
+  --success-soft: #0f2a1b;
+  --warning: #fbbf24;
+  --warning-soft: #2a1f08;
+  --danger: #f87171;
+  --danger-soft: #2a0e12;
+  color-scheme: dark;
+}
+
 @theme inline {
   --font-serif: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-mono: var(--font-geist-mono), "JetBrains Mono", ui-monospace, monospace;
@@ -66,6 +89,8 @@
   --color-brand-soft: var(--brand-soft);
   --color-brand-softer: var(--brand-softer);
   --color-lime: #edff45;
+  /* Text on lime is always dark ink, in both themes (17.6:1). */
+  --color-on-lime: #0a0a23;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-card: var(--surface-card);
@@ -100,8 +125,12 @@ body {
   outline-offset: 2px;
 }
 
+:root[data-theme="dark"] :focus-visible {
+  outline-color: var(--link);
+}
+
 @media (prefers-color-scheme: dark) {
-  :focus-visible {
+  :root:not([data-theme="light"]) :focus-visible {
     outline-color: var(--link);
   }
 }
