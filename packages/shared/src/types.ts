@@ -1,5 +1,8 @@
 /** "careersite": a company's own careers site read from its public job feed / sitemap (see adapters/careersite.ts). */
-export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "careersite";
+export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "careersite" | "amazon" | "google" | "apple" | "eightfold";
+
+/** Boards read at most hourly, all at once (no cheap partial read): careers-site feeds and the big-tech sites. */
+export const HOURLY_ATS: readonly Ats[] = ["careersite", "amazon", "google", "apple", "eightfold"];
 
 export type Segment =
   | "pharma"

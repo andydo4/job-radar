@@ -37,7 +37,7 @@ function consultingOrOther(title: string, department?: string): RoleFamily {
  * product and design engineers, UX / product designers.
  */
 export const SOFTWARE_ROLE =
-  /\b(software (engineer|developer|development engineer)\w*|swe\b|sde\b|developer\b|engineer(ing)?,? (new grad|early career|university grad|college grad)|forward[- ]deployed|deployment (strategist|engineer)|solutions? engineer|product engineer|design engineer|ux engineer|ui engineer|creative technologist|product designer|ux designer|full[- ]?stack|front[- ]?end|back[- ]?end|mobile engineer|ios engineer|android engineer|web engineer|platform engineer|infrastructure engineer|systems engineer|reliability engineer|sre\b|data engineer|machine learning engineer|ml engineer|ai engineer|applied ai engineer|research engineer|member of (the )?technical staff|mts\b|production engineer|security engineer|quant(itative)? developer|engineer\s*(i|1)\b)/i;
+  /\b(software (engineer|engineering|developer|development engineer)\w*|swe\b|sde\b|developer\b|engineer(ing)?,? (new grad|early career|university grad|college grad)|forward[- ]deployed|deployment (strategist|engineer)|solutions? engineer|product engineer|design engineer|ux engineer|ui engineer|creative technologist|product designer|ux designer|full[- ]?stack|front[- ]?end|back[- ]?end|mobile engineer|ios engineer|android engineer|web engineer|platform engineer|infrastructure engineer|systems engineer|reliability engineer|sre\b|data engineer|machine learning engineer|ml engineer|ai engineer|applied ai engineer|research engineer|member of (the )?technical staff|mts\b|production engineer|security engineer|quant(itative)? developer|engineer\s*(i|1)\b)/i;
 
 /**
  * Unmistakable software jobs at non-tech companies (pharma IT, lab software, data engineering).
@@ -45,7 +45,7 @@ export const SOFTWARE_ROLE =
  * "Engineer I" mean lab, plant or instrument work at a biotech, so they stay out.
  */
 export const CLEAR_SOFTWARE =
-  /\b(software (engineer|developer|development engineer|architect)\w*|(full[- ]?stack|front[- ]?end|back[- ]?end|web|mobile|ios|android|cloud|devops|data|machine learning|ml|mlops|ai|site reliability) (engineer|developer)|(application|applications|salesforce|java|python|\.net) developer|swe\b|sde\b|sre\b|devops\b)/i;
+  /\b(software (engineer|engineering|developer|development engineer|architect)\w*|(full[- ]?stack|front[- ]?end|back[- ]?end|web|mobile|ios|android|cloud|devops|data|machine learning|ml|mlops|ai|site reliability) (engineer|developer)|(application|applications|salesforce|java|python|\.net) developer|swe\b|sde\b|sre\b|devops\b)/i;
 
 const FAMILY_RULES: [RoleFamily, RegExp][] = [
   ["compbio", /\b(bioinformatic\w*|computational (biolog\w*|chemist\w*|scien\w*)|machine learning scientist|data scien\w*|biostatistic\w*|statistical programmer|cheminformatic\w*)\b/i],
@@ -87,7 +87,7 @@ export function classifyRoleFamily(title: string, segment: Segment, department?:
 
 export function classifySeniority(title: string): Seniority {
   const t = title.replace(/[–—]/g, "-");
-  if (/\b(intern|internship|co-?op|summer (student|associate)|student (worker|researcher))\b/i.test(t)) return "intern";
+  if (/\b(interns?|internships?|co-?ops?|summer (student|associate)|student (worker|researcher))\b/i.test(t)) return "intern";
   if (
     /\b(senior|sr\.?|principal|staff|lead|manager|director|head of|vp|vice president|chief|partner|executive director|fellow(?! program))\b/i.test(t) &&
     // "Venture Fellow" / "Associate Fellow" at VC firms is an early-career program.

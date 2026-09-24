@@ -31,10 +31,11 @@ Code: this repo (public, github.com/andydo4/job-radar). Live site: Vercel projec
 - **Job detail page**: long location lists (>6) collapse behind a native `Show all N locations` disclosure box with scrollable badges so huge multi-city roles don't push down the description.
 - **US map** (built 2026-09-24, `docs/setup-map.md`): List / Map switch next to the Jobs tabs (`?mode=map`, remembered with the filters, works on every tab). States shaded in 5 count bands of the brand blue (quantile bands, `lib/map.ts`), counts on the map, small NE states in a callout column (desktop), hover tooltip (roles, new, top companies). Click/tap a state -> its roles beside (xl) or below the map, with city chips (`&state=MA&city=Boston`). Remote (US) and "No state listed" tiles. Phones: pinch/drag/+/-, tap zooms to the state. A picked state stays as a 📍 filter pill in List mode. Data: `jobs.states` / `jobs.places` (migration 0008), parsed by `placesOf()` in classify.ts; a role in several states counts in each. Map mode reads up to 8,000 light rows (`getMapJobs`), then loads full rows only for the picked state. State outlines: `apps/web/lib/us-map-shapes.ts` (Census via us-atlas, public domain).
 - Non-US fix: careers-site locations like "Grenzach-Wyhlen, Baden-Württemberg, DE" were read as Delaware; a trailing 2-letter code after 2+ parts is now a country (`foreignCountryCode` in classify.ts). 0008 hides the ones already saved.
+- **Big tech readers** (2026-09-24, `docs/setup-bigtech.md`, migration 0009): Amazon, Google, Apple (internships), Microsoft + Netflix (Eightfold) in `packages/shared/src/adapters/bigtech.ts`, read hourly. Plus 54 tech + 16 biotech companies on Greenhouse/Lever/Ashby. ~259 companies total.
 - **Company dropdown**: queries all active companies Primer watches (~100), grouped into "Companies with matching roles" (with counts) and "Other watched companies (0 roles)" so all tracked companies are visible and selectable.
 
 ## To do
-- **DB action**: run `supabase/migrations/0008_map.sql` in Supabase BEFORE pushing the map code (0007 must already be run).
+- **DB action**: run `supabase/migrations/0009_bigtech.sql` BEFORE pushing the big-tech companies.
 - Map ideas parked for later: city-level hotspot dots (Boston, SF...), a state filter inside the Filters panel.
 - See docs/roadmap.md. Company pages, at-a-glance parsing and the US map are **done**.
 - Check possible wrong-company matches before adding: orbital, candid, genesis, nabla, caribou, scribe, resilience, seer, latch, watershed, cello, polaris.

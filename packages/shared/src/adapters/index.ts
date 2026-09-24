@@ -5,6 +5,7 @@ import { fetchLever } from "./lever.ts";
 import { fetchAshby } from "./ashby.ts";
 import { fetchWorkday, enrichWorkdayJob, type WorkdayOptions } from "./workday.ts";
 import { fetchCareerSite, enrichCareerJob } from "./careersite.ts";
+import { fetchAmazon, fetchApple, fetchEightfold, fetchGoogle } from "./bigtech.ts";
 import type { NormalizedJob } from "../types.ts";
 
 export interface FetchOptions {
@@ -27,6 +28,14 @@ export function fetchCompanyJobs(
       return fetchWorkday(ctx, company, opts.workday);
     case "careersite":
       return fetchCareerSite(ctx, company);
+    case "amazon":
+      return fetchAmazon(ctx, company);
+    case "google":
+      return fetchGoogle(ctx, company);
+    case "apple":
+      return fetchApple(ctx, company);
+    case "eightfold":
+      return fetchEightfold(ctx, company);
     default: {
       const never: never = company.ats;
       throw new Error(`Unsupported ATS: ${String(never)}`);
@@ -49,3 +58,4 @@ export * from "./lever.ts";
 export * from "./ashby.ts";
 export * from "./workday.ts";
 export * from "./careersite.ts";
+export * from "./bigtech.ts";

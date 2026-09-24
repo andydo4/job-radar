@@ -2,7 +2,8 @@
 // is still up. Mirrors the endpoints in packages/shared/src/adapters (the website is a
 // separate app, so the few URLs it needs are repeated here).
 
-export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "careersite";
+// amazon / google / apple / eightfold (big-tech sites) have no cheap single-job check: always "unknown".
+export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "careersite" | "amazon" | "google" | "apple" | "eightfold";
 export type LiveStatus = "open" | "closed" | "unknown";
 
 export interface LiveCheckJob {

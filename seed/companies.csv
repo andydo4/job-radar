@@ -192,3 +192,82 @@ zoox,Zoox,lever,zoox,tech,true
 wealthfront,Wealthfront,lever,wealthfront,tech,true
 salesforce,Salesforce,workday,salesforce|wd12|futureforce_newgradroles,tech,true
 nvidia,Nvidia,workday,nvidia|wd5|NVIDIAExternalCareerSite|new college grad,tech,true
+# Big tech on their own careers sites (custom readers in packages/shared/src/adapters/bigtech.ts, read hourly). Verified live 2026-09-24.
+amazon,Amazon,amazon,software-development,tech,true
+google,Google,google,EARLY;INTERN_AND_APPRENTICE,tech,true
+apple,Apple,apple,internships-STDNT-INTRN,tech,true
+microsoft,Microsoft,eightfold,apply.careers.microsoft.com|microsoft.com|software engineer,tech,true
+netflix,Netflix,eightfold,explore.jobs.netflix.net|netflix.com|,tech,true
+# More tech (boards checked live 2026-09-24)
+waymo,Waymo,greenhouse,waymo,tech,true
+spacex,SpaceX,greenhouse,spacex,tech,true
+anduril,Anduril,greenhouse,andurilindustries,tech,true
+carta,Carta,greenhouse,carta,tech,true
+box,Box,greenhouse,boxinc,tech,true
+coreweave,CoreWeave,greenhouse,coreweave,tech,true
+databento,Databento,greenhouse,databento,tech,true
+drw,DRW,greenhouse,drweng,tech,true
+figure-ai,Figure AI,greenhouse,figureai,tech,true
+five-rings,Five Rings,greenhouse,fiveringsllc,tech,true
+gemini,Gemini,greenhouse,gemini,tech,true
+hudson-river-trading,Hudson River Trading,greenhouse,wehrtyou,tech,true
+klaviyo,Klaviyo,greenhouse,klaviyo,tech,true
+lucid-motors,Lucid Motors,greenhouse,lucidmotors,tech,true
+motional,Motional,greenhouse,motional,tech,true
+neuralink,Neuralink,greenhouse,neuralink,tech,true
+nextdoor,Nextdoor,greenhouse,nextdoor,tech,true
+old-mission,Old Mission,greenhouse,oldmissioncapital,tech,true
+optiver,Optiver,greenhouse,optiverus,tech,true
+peloton,Peloton,greenhouse,peloton,tech,true
+pure-storage,Pure Storage,greenhouse,purestorage,tech,true
+relativity-space,Relativity Space,greenhouse,relativity,tech,true
+roku,Roku,greenhouse,roku,tech,true
+rubrik,Rubrik,greenhouse,rubrik,tech,true
+sambanova,SambaNova,greenhouse,sambanovasystems,tech,true
+seatgeek,SeatGeek,greenhouse,seatgeek,tech,true
+squarespace,Squarespace,greenhouse,squarespace,tech,true
+toast,Toast,greenhouse,toast,tech,true
+together-ai,Together AI,greenhouse,togetherai,tech,true
+tower-research,Tower Research Capital,greenhouse,towerresearchcapital,tech,true
+twitch,Twitch,greenhouse,twitch,tech,true
+vast,Vast,greenhouse,vast,tech,true
+virtu,Virtu Financial,greenhouse,virtu,tech,true
+wiz,Wiz,greenhouse,wizinc,tech,true
+xai,xAI,greenhouse,xai,tech,true
+zocdoc,Zocdoc,greenhouse,zocdoc,tech,true
+abnormal-security,Abnormal Security,greenhouse,abnormalsecurity,tech,true
+addepar,Addepar,greenhouse,addepar1,tech,true
+betterment,Betterment,greenhouse,betterment,tech,true
+flatiron-health,Flatiron Health,greenhouse,flatironhealth,tech,true
+cerebras,Cerebras,ashby,cerebras,tech,true
+character-ai,Character.AI,ashby,character,tech,true
+confluent,Confluent,ashby,confluent,tech,true
+crusoe,Crusoe,ashby,crusoe,tech,true
+anyscale,Anyscale,ashby,anyscale,tech,true
+hex,Hex,ashby,hex,tech,true
+lambda,Lambda,ashby,lambda,tech,true
+physical-intelligence,Physical Intelligence,ashby,physicalintelligence,tech,true
+quora,Quora,ashby,quora,tech,true
+saronic,Saronic,ashby,saronic,tech,true
+skydio,Skydio,ashby,skydio,tech,true
+strava,Strava,ashby,strava,tech,true
+thinking-machines,Thinking Machines Lab,ashby,thinkingmachines,tech,true
+zapier,Zapier,ashby,zapier,tech,true
+rover,Rover,lever,rover,tech,true
+# More biotech (boards checked live 2026-09-24)
+revolution-medicines,Revolution Medicines,greenhouse,revolutionmedicines,biotech,true
+bridgebio,BridgeBio,greenhouse,bridgebio,biotech,true
+summit-therapeutics,Summit Therapeutics,greenhouse,summittherapeutics,biotech,true
+natera,Natera,greenhouse,natera,tools,true
+adaptive-biotechnologies,Adaptive Biotechnologies,greenhouse,adaptivebiotechnologies,biotech,true
+calico,Calico Life Sciences,greenhouse,calicolabs,biotech,true
+colossal-biosciences,Colossal Biosciences,greenhouse,colossalbiosciences,biotech,true
+lyell,Lyell Immunopharma,greenhouse,lyellimmunopharma,biotech,true
+dispatch-bio,Dispatch Bio,greenhouse,dispatchbio,biotech,true
+arcadia-science,Arcadia Science,greenhouse,arcadiascience,biotech,true
+arvinas,Arvinas,greenhouse,arvinas,biotech,true
+nimbus-therapeutics,Nimbus Therapeutics,greenhouse,nimbustherapeutics,biotech,true
+strand-therapeutics,Strand Therapeutics,greenhouse,strandtherapeutics,biotech,true
+alector,Alector,lever,alector,biotech,true
+cradle,Cradle,ashby,cradlebio,tools,true
+latchbio,LatchBio,ashby,latchbio,tools,true

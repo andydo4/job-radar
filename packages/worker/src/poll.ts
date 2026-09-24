@@ -22,6 +22,7 @@ import {
   type Company,
   type FetchFn,
   type HttpContext,
+  HOURLY_ATS,
 } from "@job-radar/shared";
 import { loadCompanies } from "./companies.ts";
 import { ROOT, isMain } from "./paths.ts";
@@ -79,8 +80,9 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
   };
   // "Big" boards: Workday (many pages) and careers-site feeds (one large file). Their full reads
   // share a per-run budget; the most overdue go first.
-  const big = (c: Company) => c.ats === "workday" || c.ats === "careersite";
-  const sweepHours = (c: Company) => (c.ats === "careersite" ? (opts.careerSiteHours ?? 1) : (opts.fullSweepHours ?? 3));
+  const hourly = (c: Company) => HOURLY_ATS.includes(c.ats);
+  const big = (c: Company) => c.ats === "workday" || hourly(c);
+  const sweepHours = (c: Company) => (hourly(c) ? (opts.careerSiteHours ?? 1) : (opts.fullSweepHours ?? 3));
   const due = active
     .filter((c) => big(c) && needsFullSweep(opts.state, c, now(), sweepHours(c)))
     .sort((a, b) => lastFull(a) - lastFull(b));
@@ -91,7 +93,7 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
     const full = !big(company) || fullNow.has(company.id);
     // Not this run: a new big board waits for its first full read (the baseline); a careers-site
     // feed has no cheap partial read, so it just waits until it's due again.
-    if (!full && (company.ats === "careersite" || !opts.state.companies[company.id]?.baselinedAt)) {
+    if (!full && (hourly(company) || !opts.state.companies[company.id]?.baselinedAt)) {
       return { company, ok: true, mode: "waiting", fetched: 0, requests: 0, newCount: 0, backlog: 0, closed: 0, baselined: false, suspiciousEmpty: false, ms: 0 };
     }
     if (opts.jitterMs) await new Promise((r) => setTimeout(r, Math.random() * opts.jitterMs!));

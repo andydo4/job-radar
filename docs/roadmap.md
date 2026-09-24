@@ -2,7 +2,7 @@
 
 
 ## Next ideas
-- Custom readers for Google, Meta, Apple, Microsoft, Amazon (tech track).
+- Meta reader (needs a token from the page); Workday big tech (Adobe, Intel, PayPal, Capital One, Qualcomm): add via `npm run discover` with a job link.
 - Novo Nordisk reader; `npm run discover` for Teva, Astellas, Daiichi Sankyo, CSL, Organon, Zoetis, Viatris.
 - Map v2 (maybe): city hotspot dots; optional visa filter (data is stored); optional email digest.
 
