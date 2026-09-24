@@ -1,13 +1,13 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { buttonClass } from "@/components/ui";
 import { AFTER_GRAD_OPTIONS, DEGREE_OPTIONS, TIER_OPTIONS, type Profile, type ProfileFormState } from "@/lib/profile";
 
 type Action = (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
 
 const FAMILY_HELP: [string, string, string][] = [
-  ["software", "Software (tech companies)", "SWE, new grad, forward deployed, product & design engineer"],
+  ["software", "Software", "SWE, data & ML engineering, forward deployed, product & design engineer, at any company"],
   ["research", "Research", "Research associate, scientist, lab roles"],
   ["process", "Process & manufacturing", "Process development, bioprocess, manufacturing"],
   ["quality", "Quality", "QC analyst, QA, validation"],
@@ -19,6 +19,17 @@ const FAMILY_HELP: [string, string, string][] = [
   ["consulting", "Life-science consulting", "Analyst / associate at consulting firms"],
   ["vc", "Biotech venture", "Analyst / associate at VC funds"],
 ];
+
+/** The form's values as one comparable string (order-independent). */
+function snapshot(form: HTMLFormElement): string {
+  return [...new FormData(form).entries()]
+    .filter(([k]) => k !== "from")
+    .map(([k, v]) => `${k}=${String(v)}`)
+    .sort()
+    .join("&");
+}
+
+const LEAVE_MESSAGE = "You have unsaved changes to your profile. Leave without saving?";
 
 const inputClass =
   "h-11 w-full border border-line-strong bg-surface px-3 font-mono text-sm text-heading placeholder:text-subtle aria-invalid:border-danger sm:h-10";
@@ -56,8 +67,73 @@ export function ProfileForm({
   const profile: Omit<Profile, "onboarded_at"> = state.draft ?? saved;
   const gradMonth = profile.grad_month ? profile.grad_month.slice(0, 7) : "";
 
+  // Settings: notice unsaved changes, show a save bar, and ask before leaving the page.
+  const guard = from === "settings";
+  const formRef = useRef<HTMLFormElement>(null);
+  const baseline = useRef<string | null>(null);
+  const submitting = useRef(false);
+  const [dirty, setDirty] = useState(false);
+  const check = useCallback(() => {
+    const f = formRef.current;
+    if (!f) return;
+    baseline.current ??= snapshot(f); // first render = what's saved
+    setDirty(snapshot(f) !== baseline.current);
+  }, []);
+  // After a failed save the form re-renders with what you typed: still unsaved.
+  useEffect(() => {
+    if (!guard) return;
+    const f = formRef.current;
+    if (!f) return;
+    submitting.current = false;
+    if (baseline.current === null) baseline.current = snapshot(f);
+    else f.dispatchEvent(new Event("input", { bubbles: true }));
+  }, [guard, state]);
+
+  useEffect(() => {
+    if (!guard || !dirty) return;
+    const onUnload = (e: BeforeUnloadEvent) => {
+      if (submitting.current) return;
+      e.preventDefault();
+      e.returnValue = ""; // older browsers need this to show the prompt
+    };
+    // Links inside the app (tabs, avatar menu, job links): ask first.
+    const onClick = (e: MouseEvent) => {
+      if (submitting.current || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!a || a.target === "_blank" || a.hasAttribute("download")) return;
+      const url = new URL(a.href, location.href);
+      if (url.pathname === location.pathname && url.search === location.search) return; // same page (#companies)
+      if (!window.confirm(LEAVE_MESSAGE)) {
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        submitting.current = true; // you chose to leave: don't ask again
+      }
+    };
+    window.addEventListener("beforeunload", onUnload);
+    document.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener("beforeunload", onUnload);
+      document.removeEventListener("click", onClick, true);
+    };
+  }, [guard, dirty]);
+
+  const discard = () => {
+    formRef.current?.reset();
+    setDirty(false);
+  };
+
   return (
-    <form key={state.draft ? JSON.stringify(state.draft) : "saved"} action={formAction} className="flex flex-col gap-8" noValidate>
+    <form
+      ref={formRef}
+      key={state.draft ? JSON.stringify(state.draft) : "saved"}
+      action={formAction}
+      onInput={guard ? check : undefined}
+      onChange={guard ? check : undefined}
+      onSubmit={() => (submitting.current = true)}
+      className="flex flex-col gap-8"
+      noValidate
+    >
       <input type="hidden" name="from" value={from} />
       {state.message && (
         <p role="alert" className="border border-danger/30 bg-danger-soft px-4 py-3 font-mono text-sm text-danger">
@@ -184,11 +260,34 @@ export function ProfileForm({
       </fieldset>
 
       <div className="flex flex-wrap items-center gap-4">
-        <button type="submit" disabled={pending} className={buttonClass("primary")}>
-          {pending ? "Saving…" : submitLabel}
+        <button type="submit" disabled={pending || (guard && !dirty)} className={buttonClass("primary")}>
+          {pending ? "Saving…" : guard ? (dirty ? "Save changes" : "Saved ✓") : submitLabel}
         </button>
-        <p className="font-mono text-xs text-subtle">Only you can see this. Change it any time in Settings.</p>
+        <p className="font-mono text-xs text-subtle">
+          {guard && dirty ? "You have unsaved changes." : "Only you can see this. Change it any time in Settings."}
+        </p>
       </div>
+
+      {/* Settings: a bar pinned to the bottom of the screen while there are unsaved changes. */}
+      {guard && dirty && <div aria-hidden className="h-16" />}
+      {guard && dirty && (
+        <div role="region" aria-label="Unsaved changes" className="fixed inset-x-0 bottom-0 z-40 border-t-2 border-brand bg-surface shadow-[0_-4px_16px_rgba(0,0,0,0.08)]">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-8">
+            <p className="flex items-center gap-2 font-mono text-sm text-heading">
+              <span aria-hidden className="size-2 shrink-0 rounded-full bg-lime ring-2 ring-heading/20" />
+              Unsaved changes
+            </p>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={discard} disabled={pending} className={buttonClass("secondary")}>
+                Discard
+              </button>
+              <button type="submit" disabled={pending} className={buttonClass("primary")}>
+                {pending ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
