@@ -150,8 +150,8 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         />
       </dl>
 
-      {(j.work_model || j.visa_sponsorship || j.travel || j.housing || j.clearance_required || (j.application_extras && j.application_extras.length > 0)) && (
-        <dl className="-mt-4 grid border border-line bg-surface px-5 py-2 sm:grid-cols-4 sm:py-5">
+      {(j.work_model || j.travel || j.housing || j.clearance_required || (j.application_extras && j.application_extras.length > 0)) && (
+        <dl className="-mt-4 grid border border-line bg-surface px-5 py-2 sm:grid-cols-3 sm:py-5">
           <Fact
             label="Work model"
             value={
@@ -166,18 +166,6 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
                 : j.remote
                   ? "Remote"
                   : notStated()
-            }
-          />
-          <Fact
-            label="Visa"
-            value={
-              j.visa_sponsorship === "no" ? (
-                <span className="text-danger">Not sponsored</span>
-              ) : j.visa_sponsorship === "yes" ? (
-                <span className="text-success">Offered</span>
-              ) : (
-                notStated()
-              )
             }
           />
           <Fact label="Travel" value={j.travel ?? notStated("None stated")} />

@@ -59,7 +59,6 @@ export function JobDetails({
   const hasGlance =
     glance &&
     (glance.workModel ||
-      glance.visa ||
       glance.travel ||
       glance.housing ||
       glance.clearance ||
@@ -93,8 +92,7 @@ export function JobDetails({
                   </span>
                 )}
                 {glance.workModel === "onsite" && <span className="border border-line bg-muted px-2 py-0.5 font-mono text-xs text-body">On-site</span>}
-                {glance.visa === "no" && <span className="border border-danger/30 bg-danger-soft px-2 py-0.5 font-mono text-xs text-danger">No visa sponsorship</span>}
-                {glance.visa === "yes" && <span className="border border-success/30 bg-success-soft px-2 py-0.5 font-mono text-xs text-success">Visa sponsorship offered</span>}
+                {/* Visa sponsorship is still parsed and stored (jobs.visa_sponsorship) but not shown: both users are US citizens. */}
                 {glance.travel && <span className="border border-line bg-muted px-2 py-0.5 font-mono text-xs text-body">{glance.travel}</span>}
                 {glance.housing === "provided" && <span className="border border-success/30 bg-success-soft px-2 py-0.5 font-mono text-xs text-success">Housing provided</span>}
                 {glance.housing === "stipend" && <span className="border border-success/30 bg-success-soft px-2 py-0.5 font-mono text-xs text-success">Housing stipend</span>}

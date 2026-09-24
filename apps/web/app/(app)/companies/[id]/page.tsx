@@ -15,7 +15,6 @@ import {
   salaryLabel,
   timeAgo,
   timingLabel,
-  visaBadge,
   workModelBadge,
   type JobGroup,
   type SortKey,
@@ -65,7 +64,6 @@ function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; p
   const q = qualify(profile, j);
   const when = timelineTag(profile, { ...j, locations: g.locations });
   const model = workModelBadge(j);
-  const visa = visaBadge(j.visa_sponsorship);
   const page = `/jobs/${j.id}?back=${encodeURIComponent(`/companies/${j.company_id}`)}`;
 
   return (
@@ -106,10 +104,9 @@ function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; p
       </Link>
       <p className="mt-0.5 truncate font-mono text-xs text-subtle">{locText}</p>
 
-      {(when || pay || timing || deadline || q || model || visa) && (
+      {(when || pay || timing || deadline || q || model) && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {model && <Badge tone={model.tone}>{model.label}</Badge>}
-          {visa && <Badge tone={visa.tone}>{visa.label}</Badge>}
           {when && (
             <Badge tone={when.tone} className="font-semibold">
               {when.label}

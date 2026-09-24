@@ -22,7 +22,6 @@ import {
   salaryLabel,
   timeAgo,
   timingLabel,
-  visaBadge,
   workModelBadge,
   type JobFilters,
   type JobGroup,
@@ -194,7 +193,6 @@ function JobCard({
   const when = timelineTag(profile, { ...j, locations: g.locations });
   const page = jobHref(j.id, listHref);
   const model = workModelBadge(j);
-  const visa = visaBadge(j.visa_sponsorship);
 
   return (
     <JobCardShell
@@ -246,10 +244,9 @@ function JobCard({
       <p className="mt-0.5 truncate font-mono text-xs text-subtle">{locText}</p>
 
       {/* The facts people decide on first */}
-      {(when || pay || timing || deadline || q || model || visa) && (
+      {(when || pay || timing || deadline || q || model) && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
           {model && <Badge tone={model.tone}>{model.label}</Badge>}
-          {visa && <Badge tone={visa.tone}>{visa.label}</Badge>}
           {when && (
             <Badge tone={when.tone} className="font-semibold">
               {when.label}
