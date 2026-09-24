@@ -210,7 +210,9 @@ function JobCard({
               ★{" "}
             </span>
           )}
-          {j.company?.name ?? j.company_id}
+          <Link href={`/jobs?view=all&company=${j.company_id}`} className="hover:text-link hover:underline" title="All of this company's open jobs">
+            {j.company?.name ?? j.company_id}
+          </Link>
         </span>
         <span aria-hidden>·</span>
         <span title={`Primer found it ${timeAgo(j.first_seen_at)}`}>{posted ?? `found ${timeAgo(j.first_seen_at)}`}</span>
