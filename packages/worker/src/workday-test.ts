@@ -69,12 +69,20 @@ async function testOne(ctx: HttpContext, label: string, k: WorkdayKey): Promise<
       lines.push(`- Full sweep = **${pages} requests** (${WORKDAY_PAGE_SIZE}/page).${p0.total > 2000 ? " ⚠️ Over 2,000 jobs: full sweeps may hit Workday's pagination ceiling." : ""}`);
     }
 
-    const big = await page(ctx, k, 0, 100);
-    lines.push(
-      big.postings.length === 0
-        ? "- ✅ limit=100 returns 0 jobs (confirms the 20-per-page cap; the adapter already uses 20)."
-        : `- ℹ️ limit=100 returned ${big.postings.length} jobs (this tenant allows bigger pages).`,
-    );
+    // Probe the page-size cap. Depending on the tenant, Workday answers limit=100 with
+    // 200 + zero jobs, or with HTTP 400. Either way it just confirms the 20-per-page cap,
+    // so this must never abort the rest of the test.
+    try {
+      const big = await page(ctx, k, 0, 100);
+      lines.push(
+        big.postings.length === 0
+          ? "- ✅ limit=100 returns 0 jobs (confirms the 20-per-page cap; the adapter already uses 20)."
+          : `- ℹ️ limit=100 returned ${big.postings.length} jobs (this tenant allows bigger pages).`,
+      );
+    } catch (err) {
+      if (!(err instanceof HttpError && err.status === 400)) throw err;
+      lines.push("- ✅ limit=100 is rejected with HTTP 400 (confirms the 20-per-page cap; the adapter already uses 20).");
+    }
 
     const p1 = await page(ctx, k, WORKDAY_PAGE_SIZE);
     const p2 = await page(ctx, k, WORKDAY_PAGE_SIZE * 2);
