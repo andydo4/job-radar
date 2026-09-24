@@ -2,14 +2,7 @@
 
 Requested by Andy on 2026-09-24. Not built yet.
 
-## 1. Company pages
-Click a company name anywhere (job card, job page, Settings → Companies) → `/companies/[id]`:
-all of that company's open listings, grouped by job type, with the same card, filters and badges as Jobs.
-Header: name, segment, open-role count, Star / Hide buttons, link to their careers site.
-Implementation: reuse `getJobs` with `company` set; new route `app/(app)/companies/[id]/page.tsx`;
-make the company name on `JobCard` a `<Link>`.
-
-## 2. Interactive US map
+## 1. Interactive US map
 A map view (tab or toggle on Jobs) of the US; each state shaded by how many open jobs match the current
 filters; click a state → the list filtered to that state (`?state=MA`).
 Needs: a `state` column (2-letter code) on jobs, filled by the classifier from locations (classify.ts
@@ -29,5 +22,6 @@ Show as a compact "At a glance" block on the card's Details dropdown and job pag
 If pattern rules miss too much, add a free AI pass only for jobs where fields are blank.
 
 ## Done 2026-09-24 (for reference)
+Company pages (`/companies/[id]`): company name on every job card, job detail page, and Settings company list links to `/companies/[id]`. Page shows name, segment, open-role count, Star/Hide buttons, Careers site link, and all open jobs grouped by role family. `getCompany()` added to `lib/jobs.ts`.
 Timeline tag on every card: "Full-time · after you graduate" / "During undergrad · Remote|On-site" /
 "Grad-school internship" / "Internship after you graduate" (`timelineTag` in apps/web/lib/profile.ts).

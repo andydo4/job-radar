@@ -419,6 +419,20 @@ export async function getDescription(supabase: SupabaseClient, id: number): Prom
   return (data as { description_text: string | null } | null)?.description_text ?? null;
 }
 
+/** One company by id, or null if not found. */
+export async function getCompany(
+  supabase: SupabaseClient,
+  id: string,
+): Promise<{ id: string; name: string; segment: string; careersite_url: string | null; open: number } | null> {
+  const [{ data: co }, { data: jobs }] = await Promise.all([
+    supabase.from("companies").select("id, name, segment, careersite_url").eq("id", id).eq("active", true).maybeSingle(),
+    supabase.from("jobs").select("dedupe_key").eq("company_id", id).is("closed_at", null).eq("is_us", true).limit(5000),
+  ]);
+  if (!co) return null;
+  const open = new Set((jobs ?? []).map((j: { dedupe_key: string }) => j.dedupe_key)).size;
+  return { ...(co as { id: string; name: string; segment: string; careersite_url: string | null }), open };
+}
+
 /** Every company Primer watches, with how many open roles each has right now. */
 export async function getCompanies(supabase: SupabaseClient): Promise<{ id: string; name: string; segment: string; open: number }[]> {
   const [{ data: cos }, { data: jobs }] = await Promise.all([

@@ -68,7 +68,9 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="font-mono text-sm font-medium text-subtle">{j.company?.name ?? j.company_id}</p>
+              <Link href={`/companies/${j.company_id}`} className="font-mono text-sm font-medium text-subtle hover:text-link hover:underline">
+                {j.company?.name ?? j.company_id}
+              </Link>
               <CompanyPrefButtons companyId={j.company_id} name={j.company?.name ?? j.company_id} initial={companyPrefs.get(j.company_id) ?? null} compact />
             </div>
             <h1 className="mt-1 font-mono text-2xl leading-8 font-bold text-heading sm:text-[28px] sm:leading-9">{j.title}</h1>

@@ -210,7 +210,7 @@ function JobCard({
               ★{" "}
             </span>
           )}
-          <Link href={`/jobs?view=all&company=${j.company_id}`} className="hover:text-link hover:underline" title="All of this company's open jobs">
+          <Link href={`/companies/${j.company_id}`} className="hover:text-link hover:underline" title={`${j.company?.name ?? j.company_id} company page`}>
             {j.company?.name ?? j.company_id}
           </Link>
         </span>

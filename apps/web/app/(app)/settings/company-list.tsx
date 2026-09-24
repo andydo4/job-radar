@@ -28,7 +28,9 @@ export function CompanyList({ companies, prefs }: { companies: { id: string; nam
         {shown.map((c) => (
           <li key={c.id} className="flex flex-col gap-2 border-b border-line px-4 py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between">
             <span className="flex min-w-0 flex-col">
-              <span className="truncate font-mono text-sm font-medium text-heading">{c.name}</span>
+              <a href={`/companies/${c.id}`} className="truncate font-mono text-sm font-medium text-heading hover:text-link hover:underline">
+                {c.name}
+              </a>
               <span className="font-mono text-xs text-subtle">
                 {SEGMENT[c.segment] ?? c.segment} · {c.open} open role{c.open === 1 ? "" : "s"}
               </span>
