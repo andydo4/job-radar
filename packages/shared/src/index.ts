@@ -5,3 +5,4 @@ export * from "./classify.ts";
 export * from "./filter.ts";
 export * from "./adapters/index.ts";
 export * from "./details.ts";
+export * from "./dates.ts";

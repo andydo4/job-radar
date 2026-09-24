@@ -6,13 +6,16 @@ import { Description } from "@/components/job-description";
 import {
   EMPLOYMENT_LABEL,
   FAMILY_LABEL,
+  deadlineInfo,
   experienceLabel,
   getJob,
+  postedLabel,
   salaryLabel,
   timeAgo,
 } from "@/lib/jobs";
 import { requireUser } from "@/lib/supabase/server";
-import { getJobActions, getProfile } from "@/lib/me";
+import { getCompanyPrefs, getJobActions, getProfile } from "@/lib/me";
+import { CompanyPrefButtons } from "@/components/company-pref-button";
 import { qualify } from "@/lib/profile";
 import { DetailActions } from "./detail-actions";
 
@@ -36,7 +39,12 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
   const backHref = typeof back === "string" && /^\/jobs(\?|$)/.test(back) ? back : "/jobs";
   if (!/^\d+$/.test(id)) notFound();
   const { supabase, user } = await requireUser();
-  const [found, profile, actions] = await Promise.all([getJob(supabase, Number(id)), getProfile(supabase, user.id), getJobActions(supabase)]);
+  const [found, profile, actions, companyPrefs] = await Promise.all([
+    getJob(supabase, Number(id)),
+    getProfile(supabase, user.id),
+    getJobActions(supabase),
+    getCompanyPrefs(supabase),
+  ]);
   if (!found) notFound();
   const { job: j, siblings } = found;
 
@@ -44,6 +52,9 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
   const locations = [...new Set([...(j.locations.length ? j.locations : j.remote ? ["Remote"] : []), ...siblings.flatMap((s) => s.locations)])];
   const reqs = j.requirements ?? [];
   const q = qualify(profile, j);
+  const deadline = deadlineInfo(j.deadline);
+  const posted = postedLabel(j);
+  const notStated = (t = "Not stated") => <span className="font-normal text-subtle">{t}</span>;
   const ids = [j.id, ...siblings.map((x) => x.id)];
   const rank = { saved: 1, applied: 2, hidden: 3 } as const;
   const status = ids.map((x) => actions.get(x)).reduce<"saved" | "applied" | "hidden" | null>((best, st) => (st && (!best || rank[st] > rank[best]) ? st : best), null);
@@ -56,7 +67,10 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         </Link>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <p className="font-mono text-sm font-medium text-subtle">{j.company?.name ?? j.company_id}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="font-mono text-sm font-medium text-subtle">{j.company?.name ?? j.company_id}</p>
+              <CompanyPrefButtons companyId={j.company_id} name={j.company?.name ?? j.company_id} initial={companyPrefs.get(j.company_id) ?? null} compact />
+            </div>
             <h1 className="mt-1 font-mono text-2xl leading-8 font-bold text-heading sm:text-[28px] sm:leading-9">{j.title}</h1>
             <p className="mt-2 font-mono text-xs text-subtle">
               Found {timeAgo(j.first_seen_at)} · verified {timeAgo(j.last_seen_at)}
@@ -101,6 +115,27 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         <Fact
           label="Type"
           value={j.employment_type ? EMPLOYMENT_LABEL[j.employment_type] ?? j.employment_type : <span className="font-normal text-subtle">Not stated</span>}
+        />
+      </dl>
+
+      <dl className="-mt-4 grid border border-line bg-surface px-5 py-2 sm:grid-cols-4 sm:py-5">
+        <Fact label="Posted" value={posted ? posted.replace(/^posted /, "") : notStated("Unknown")} />
+        <Fact
+          label={j.end_date ? "Dates" : "Start"}
+          value={j.term || j.dates_label ? [j.term, j.dates_label].filter(Boolean).join(" · ") : notStated()}
+        />
+        <Fact label="Length" value={j.duration_text ?? notStated()} />
+        <Fact
+          label="Deadline"
+          value={
+            deadline ? (
+              <span className={deadline.tone === "danger" ? "text-danger" : deadline.tone === "warning" ? "text-warning" : undefined}>
+                {deadline.label.replace(/^Apply by /, "")}
+              </span>
+            ) : (
+              notStated("None listed")
+            )
+          }
         />
       </dl>
 

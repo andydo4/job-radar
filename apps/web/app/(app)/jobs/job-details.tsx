@@ -45,7 +45,7 @@ export function JobDetails({
         <span aria-hidden className={`inline-block transition-transform duration-100 ${open ? "rotate-90" : ""}`}>
           ▸
         </span>
-        {open ? "Hide details" : requirements.length ? `Details · ${requirements.length} requirements` : "Details"}
+        {open ? "Hide details" : requirements.length ? `Details · ${requirements.length} requirement${requirements.length === 1 ? "" : "s"}` : "Details"}
       </button>
 
       {open && (

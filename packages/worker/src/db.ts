@@ -14,6 +14,8 @@ import {
   classifyJob,
   enrichWorkdayJob,
   extractDetails,
+  extractTiming,
+  postedAtFromText,
   mapLimit,
   type ClassifiedJob,
   type Company,
@@ -78,6 +80,12 @@ export interface JobInsertRow {
   employment_type: string | null;
   experience_min_years: number | null;
   requirements: string[];
+  term: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  dates_label: string | null;
+  duration_text: string | null;
+  deadline: string | null;
   details_version: number;
 }
 
@@ -85,7 +93,7 @@ export interface JobInsertRow {
  * Bump when details extraction improves: every open job below this version is re-processed
  * by backfillDetails() over the next few runs.
  */
-export const DETAILS_VERSION = 1;
+export const DETAILS_VERSION = 2; // 2: term, dates, duration, deadline, Workday posted date
 
 /** A saved job that still needs its details filled in. */
 export interface JobNeedingDetails {
@@ -100,6 +108,8 @@ export interface JobNeedingDetails {
   department: string | null;
   description_text: string | null;
   posted_at: string | null;
+  posted_text: string | null;
+  first_seen_at: string;
 }
 
 export interface JobDetailsUpdate {
@@ -111,6 +121,13 @@ export interface JobDetailsUpdate {
   employment_type: string | null;
   experience_min_years: number | null;
   requirements: string[];
+  term: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  dates_label: string | null;
+  duration_text: string | null;
+  deadline: string | null;
+  posted_at: string | null;
   description_text: string | null;
   locations: string[] | null;
   country: string | null;
@@ -186,9 +203,16 @@ function needsDetailFetch(j: NormalizedJob, ats: string | undefined): boolean {
   return ats === "workday" && !j.descriptionText;
 }
 
-function detailColumns(j: NormalizedJob) {
+function detailColumns(j: NormalizedJob, seenAt: string) {
   const d = extractDetails(j.title, j.descriptionText, j.detailHints);
+  const t = extractTiming(j.title, j.descriptionText, new Date(seenAt));
   return {
+    term: t.term,
+    start_date: t.startDate,
+    end_date: t.endDate,
+    dates_label: t.datesLabel,
+    duration_text: t.durationText,
+    deadline: t.deadline,
     salary_min: d.salary?.min ?? null,
     salary_max: d.salary?.max ?? null,
     salary_currency: d.salary?.currency ?? null,
@@ -210,7 +234,7 @@ function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, 
     country: j.country ?? null,
     department: j.department ?? null,
     description_text: j.descriptionText ? j.descriptionText.slice(0, MAX_DESCRIPTION) : null,
-    posted_at: j.postedAt,
+    posted_at: j.postedAt ?? postedAtFromText(j.postedText, new Date(firstSeenAt)),
     posted_text: j.postedText ?? null,
     role_family: j.roleFamily,
     seniority: j.seniority,
@@ -221,7 +245,7 @@ function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, 
     is_backlog: isBacklog,
     first_seen_at: firstSeenAt,
     last_seen_at: lastSeenAt,
-    ...detailColumns(j),
+    ...detailColumns(j, firstSeenAt),
     details_version: needsDetailFetch(j, ats) ? 0 : DETAILS_VERSION,
   };
 }
@@ -372,7 +396,8 @@ export async function backfillDetails(
       const c = classifyJob(job, company);
       return {
         id: r.id,
-        ...detailColumns(job),
+        ...detailColumns(job, r.first_seen_at),
+        posted_at: job.postedAt ?? postedAtFromText(r.posted_text, new Date(r.first_seen_at)),
         description_text: gotDescription ? (job.descriptionText ?? "").slice(0, MAX_DESCRIPTION) : null,
         locations: gotDescription ? job.locations : null,
         country: job.country ?? null,
@@ -454,7 +479,7 @@ export function supabaseJobsDb(client: SupabaseClient): JobsDb {
     async loadJobsNeedingDetails(limit, version) {
       const res = await client
         .from("jobs")
-        .select("id, company_id, external_id, title, url, locations, remote, country, department, description_text, posted_at")
+        .select("id, company_id, external_id, title, url, locations, remote, country, department, description_text, posted_at, posted_text, first_seen_at")
         .is("closed_at", null)
         .lt("details_version", version)
         .order("first_seen_at", { ascending: false })

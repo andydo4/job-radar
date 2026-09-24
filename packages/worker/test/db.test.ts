@@ -187,4 +187,33 @@ describe("job details", () => {
     expect(workday().every((j) => j.details_version === DETAILS_VERSION)).toBe(true);
     expect((await db.loadJobsNeedingDetails(100, DETAILS_VERSION))).toHaveLength(0);
   });
+
+  it("saves term, dates, length and deadline for new postings (and Workday 'Posted N Days Ago' as a date)", async () => {
+    const db = new FakeDb();
+    await cycle(db, "2026-09-20T12:00:00Z");
+    const change = (file: string, data: any) => {
+      if (file === "greenhouse.json") {
+        data.jobs.push({
+          id: 777,
+          title: "Research Intern, Summer 2027",
+          absolute_url: "https://x/777",
+          location: { name: "Boston, MA" },
+          first_published: "2026-09-20T12:05:00Z",
+          content: "&lt;p&gt;Our 12-week internship runs May 26 - August 15, 2027. Application deadline: October 15, 2026.&lt;/p&gt;",
+        });
+      }
+      return data;
+    };
+    await cycle(db, "2026-09-20T12:10:00Z", change);
+    expect(gh("777")(db)).toMatchObject({
+      term: "Summer 2027",
+      start_date: "2027-05-26",
+      end_date: "2027-08-15",
+      dates_label: "May 26 – Aug 15, 2027",
+      duration_text: "12 weeks",
+      deadline: "2026-10-15",
+    });
+    const wd = [...db.jobs.values()].find((j) => j.company_id === "example-wd" && /today/i.test(j.posted_text ?? ""));
+    if (wd) expect(wd.posted_at).toBe("2026-09-20T12:00:00.000Z");
+  });
 });

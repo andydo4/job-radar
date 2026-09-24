@@ -26,3 +26,11 @@ export async function getJobActions(supabase: SupabaseClient): Promise<Map<numbe
   const { data } = await supabase.from("job_actions").select("job_id, status").limit(10000);
   return new Map(((data ?? []) as { job_id: number; status: JobStatus }[]).map((r) => [Number(r.job_id), r.status]));
 }
+
+export type CompanyPref = "star" | "hide";
+
+/** Your starred / hidden companies, company id -> pref. */
+export async function getCompanyPrefs(supabase: SupabaseClient): Promise<Map<string, CompanyPref>> {
+  const { data } = await supabase.from("company_prefs").select("company_id, pref").limit(5000);
+  return new Map(((data ?? []) as { company_id: string; pref: CompanyPref }[]).map((r) => [r.company_id, r.pref]));
+}

@@ -165,6 +165,8 @@ export function parseWorkdayDetail(data: unknown): {
   country?: string;
   remote: boolean;
   timeType?: string;
+  /** The day the posting went up ("2026-09-24"). */
+  postedDate?: string;
 } {
   const info = (data as WdDetail)?.jobPostingInfo ?? {};
   const country = typeof info.country === "string" ? info.country : info.country?.descriptor;
@@ -177,6 +179,7 @@ export function parseWorkdayDetail(data: unknown): {
     country: country || undefined,
     remote: /remote/i.test(info.remoteType ?? "") || locations.some(isRemoteText),
     timeType: info.timeType,
+    postedDate: info.startDate && /^\d{4}-\d{2}-\d{2}$/.test(info.startDate) ? info.startDate : undefined,
   };
 }
 
@@ -190,6 +193,7 @@ export async function enrichWorkdayJob(ctx: HttpContext, company: Company, job: 
     locations: d.locations.length ? d.locations : job.locations,
     country: d.country ?? job.country,
     remote: job.remote || d.remote,
+    postedAt: job.postedAt ?? (d.postedDate ? `${d.postedDate}T12:00:00.000Z` : null),
     detailHints: { ...job.detailHints, employmentTypeText: d.timeType ?? job.detailHints?.employmentTypeText },
   };
 }
