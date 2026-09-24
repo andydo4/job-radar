@@ -7,7 +7,7 @@ Read these first, in order:
 4. `apps/web/AGENTS.md` — Next.js 16 notes (proxy.ts instead of middleware, async params).
 5. `docs/setup-*.md` — how each feature was deployed (SQL must run in Supabase BEFORE pushing).
 
-Layout: `packages/shared` (ATS adapters, classify, details/dates/audience parsers), `packages/worker`
+Layout: `packages/shared` (ATS adapters, classify, details/dates/audience/glance parsers), `packages/worker`
 (poller run by GitHub Actions every 10 min), `apps/web` (Next.js site on Vercel), `supabase/migrations`
 (run by hand in the Supabase SQL editor), `seed/companies.csv` (watched companies).
 
