@@ -53,6 +53,13 @@ export interface JobRow {
   intern_levels: string[] | null;
   grad_from: string | null;
   grad_to: string | null;
+  work_model: "remote" | "hybrid" | "onsite" | null;
+  work_model_detail: string | null;
+  visa_sponsorship: "yes" | "no" | null;
+  travel: string | null;
+  clearance_required: boolean | null;
+  housing: "provided" | "stipend" | "not_provided" | null;
+  application_extras: string[] | null;
   company: { name: string; segment: string } | null;
 }
 
@@ -84,7 +91,7 @@ export interface JobFilters {
 export type SortKey = "new" | "company" | "pay" | "deadline";
 
 const COLUMNS =
-  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, term, start_date, end_date, dates_label, duration_text, deadline, intern_levels, grad_from, grad_to, company:companies(name, segment)";
+  "id, company_id, title, url, locations, remote, role_family, seniority, degree_min, metro_tier, is_backlog, first_seen_at, last_seen_at, posted_at, posted_text, dedupe_key, salary_min, salary_max, salary_period, employment_type, experience_min_years, requirements, term, start_date, end_date, dates_label, duration_text, deadline, intern_levels, grad_from, grad_to, work_model, work_model_detail, visa_sponsorship, travel, clearance_required, housing, application_extras, company:companies(name, segment)";
 
 /** One role, possibly posted as several listings (one per city). */
 export interface JobGroup {
@@ -394,6 +401,52 @@ export const EMPLOYMENT_LABEL: Record<string, string> = {
   intern: "Internship",
   temporary: "Temporary",
 };
+
+export function workModelBadge(
+  j: Pick<JobRow, "work_model" | "work_model_detail" | "remote">,
+): { label: string; tone: "brand" | "neutral" } | null {
+  if (j.work_model === "remote") return { label: "Remote", tone: "brand" };
+  if (j.work_model === "hybrid") {
+    return { label: j.work_model_detail ? `Hybrid · ${j.work_model_detail}` : "Hybrid", tone: "brand" };
+  }
+  if (j.work_model === "onsite") return { label: "On-site", tone: "neutral" };
+  if (j.remote) return { label: "Remote", tone: "brand" };
+  return null;
+}
+
+export function visaBadge(visa: "yes" | "no" | null | undefined): { label: string; tone: "danger" | "success" } | null {
+  if (visa === "no") return { label: "No visa sponsorship", tone: "danger" };
+  if (visa === "yes") return { label: "Visa sponsorship offered", tone: "success" };
+  return null;
+}
+
+export function housingBadge(housing: "provided" | "stipend" | "not_provided" | null | undefined): { label: string; tone: "success" | "neutral" } | null {
+  if (housing === "provided") return { label: "Housing provided", tone: "success" };
+  if (housing === "stipend") return { label: "Housing stipend", tone: "success" };
+  if (housing === "not_provided") return { label: "No housing", tone: "neutral" };
+  return null;
+}
+
+export function clearanceBadge(clearance: boolean | null | undefined): { label: string; tone: "danger" } | null {
+  if (clearance) return { label: "Clearance required", tone: "danger" };
+  return null;
+}
+
+const EXTRA_LABELS: Record<string, string> = {
+  cover_letter: "Cover letter",
+  transcript: "Transcript",
+  references: "References",
+  writing_sample: "Writing sample",
+  coding_assessment: "Coding test",
+  case_study: "Case study",
+  portfolio: "Portfolio",
+  video: "Video response",
+};
+
+export function applicationExtrasLabels(extras: string[] | null | undefined): string[] {
+  if (!extras || !extras.length) return [];
+  return extras.map((e) => EXTRA_LABELS[e] ?? e);
+}
 
 /** Companies with at least one job under the current filters, for the Company dropdown. */
 export async function getCompanyCounts(

@@ -6,6 +6,7 @@ import { Description } from "@/components/job-description";
 import {
   EMPLOYMENT_LABEL,
   FAMILY_LABEL,
+  applicationExtrasLabels,
   deadlineInfo,
   experienceLabel,
   getJob,
@@ -148,6 +149,56 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
           }
         />
       </dl>
+
+      {(j.work_model || j.visa_sponsorship || j.travel || j.housing || j.clearance_required || (j.application_extras && j.application_extras.length > 0)) && (
+        <dl className="-mt-4 grid border border-line bg-surface px-5 py-2 sm:grid-cols-4 sm:py-5">
+          <Fact
+            label="Work model"
+            value={
+              j.work_model
+                ? j.work_model_detail
+                  ? `${j.work_model === "hybrid" ? "Hybrid" : j.work_model === "remote" ? "Remote" : "On-site"} · ${j.work_model_detail}`
+                  : j.work_model === "hybrid"
+                    ? "Hybrid"
+                    : j.work_model === "remote"
+                      ? "Remote"
+                      : "On-site"
+                : j.remote
+                  ? "Remote"
+                  : notStated()
+            }
+          />
+          <Fact
+            label="Visa"
+            value={
+              j.visa_sponsorship === "no" ? (
+                <span className="text-danger">Not sponsored</span>
+              ) : j.visa_sponsorship === "yes" ? (
+                <span className="text-success">Offered</span>
+              ) : (
+                notStated()
+              )
+            }
+          />
+          <Fact label="Travel" value={j.travel ?? notStated("None stated")} />
+          <Fact
+            label={j.application_extras && j.application_extras.length > 0 ? "To apply" : j.housing ? "Housing" : "Clearance"}
+            value={
+              j.application_extras && j.application_extras.length > 0
+                ? applicationExtrasLabels(j.application_extras).join(" · ")
+                : j.housing
+                  ? j.housing === "provided"
+                    ? "Provided"
+                    : j.housing === "stipend"
+                      ? "Stipend offered"
+                      : "Not provided"
+                  : j.clearance_required
+                    ? <span className="text-danger">Required</span>
+                    : notStated()
+            }
+          />
+        </dl>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         <Badge>{FAMILY_LABEL[j.role_family] ?? j.role_family}</Badge>

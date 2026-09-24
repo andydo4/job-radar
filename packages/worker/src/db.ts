@@ -17,6 +17,7 @@ import {
   extractDetails,
   extractTiming,
   extractAudience,
+  extractGlance,
   classifySeniority,
   postedAtFromText,
   mapLimit,
@@ -92,6 +93,13 @@ export interface JobInsertRow {
   intern_levels: string[];
   grad_from: string | null;
   grad_to: string | null;
+  work_model: string | null;
+  work_model_detail: string | null;
+  visa_sponsorship: string | null;
+  travel: string | null;
+  clearance_required: boolean | null;
+  housing: string | null;
+  application_extras: string[];
   details_version: number;
 }
 
@@ -99,7 +107,7 @@ export interface JobInsertRow {
  * Bump when details extraction improves: every open job below this version is re-processed
  * by backfillDetails() over the next few runs.
  */
-export const DETAILS_VERSION = 3; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type (consulting practices)
+export const DETAILS_VERSION = 4; // 2: term, dates, duration, deadline, Workday posted date. 3: re-check job type. 4: at-a-glance parsing
 
 /** A saved job that still needs its details filled in. */
 export interface JobNeedingDetails {
@@ -149,6 +157,13 @@ export interface JobDetailsUpdate {
   is_us: boolean | null;
   metro_tier: number | null;
   degree_min: string | null;
+  work_model: string | null;
+  work_model_detail: string | null;
+  visa_sponsorship: string | null;
+  travel: string | null;
+  clearance_required: boolean | null;
+  housing: string | null;
+  application_extras: string[];
   details_version: number;
 }
 
@@ -227,6 +242,7 @@ function detailColumns(j: NormalizedJob, seenAt: string) {
   const t = extractTiming(j.title, j.descriptionText, new Date(seenAt));
   const student = d.employmentType === "intern" || classifySeniority(j.title) === "intern";
   const a = extractAudience(j.title, j.descriptionText, student);
+  const g = extractGlance(j.title, j.descriptionText);
   return {
     intern_levels: a.levels,
     grad_from: a.gradFrom,
@@ -244,6 +260,13 @@ function detailColumns(j: NormalizedJob, seenAt: string) {
     employment_type: d.employmentType,
     experience_min_years: d.experienceMinYears,
     requirements: d.requirements,
+    work_model: g.workModel,
+    work_model_detail: g.workModelDetail,
+    visa_sponsorship: g.visaSponsorship,
+    travel: g.travel,
+    clearance_required: g.clearanceRequired,
+    housing: g.housing,
+    application_extras: g.applicationExtras,
   };
 }
 

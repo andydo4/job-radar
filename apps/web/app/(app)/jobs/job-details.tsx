@@ -5,6 +5,27 @@ import { useState, useTransition } from "react";
 import { Description } from "@/components/job-description";
 import { loadDescription } from "./actions";
 
+export interface JobGlanceProps {
+  workModel?: "remote" | "hybrid" | "onsite" | null;
+  workModelDetail?: string | null;
+  visa?: "yes" | "no" | null;
+  travel?: string | null;
+  housing?: "provided" | "stipend" | "not_provided" | null;
+  clearance?: boolean | null;
+  extras?: string[] | null;
+}
+
+const EXTRA_NAMES: Record<string, string> = {
+  cover_letter: "Cover letter",
+  transcript: "Transcript",
+  references: "References",
+  writing_sample: "Writing sample",
+  coding_assessment: "Coding test",
+  case_study: "Case study",
+  portfolio: "Portfolio",
+  video: "Video response",
+};
+
 /**
  * "Details" dropdown on a job card: requirements right away, the full description
  * fetched the first time it's opened (keeps the job list fast).
@@ -14,11 +35,13 @@ export function JobDetails({
   requirements,
   pageHref,
   applyUrl,
+  glance,
 }: {
   id: number;
   requirements: string[];
   pageHref: string;
   applyUrl: string;
+  glance?: JobGlanceProps;
 }) {
   const [open, setOpen] = useState(false);
   const [desc, setDesc] = useState<string | null | undefined>(undefined);
@@ -32,6 +55,15 @@ export function JobDetails({
       start(async () => setDesc(await loadDescription(id)));
     }
   }
+
+  const hasGlance =
+    glance &&
+    (glance.workModel ||
+      glance.visa ||
+      glance.travel ||
+      glance.housing ||
+      glance.clearance ||
+      (glance.extras && glance.extras.length > 0));
 
   return (
     <div className="mt-3">
@@ -50,6 +82,33 @@ export function JobDetails({
 
       {open && (
         <div id={panelId} className="mt-2 flex flex-col gap-5 border-l-2 border-brand pl-4 sm:pl-5">
+          {hasGlance && (
+            <section className="flex flex-col gap-2">
+              <h3 className="font-mono text-[11px] font-medium tracking-[0.04em] text-subtle uppercase">At a glance</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {glance.workModel === "remote" && <span className="border border-brand-soft bg-brand-softer px-2 py-0.5 font-mono text-xs text-link">Remote</span>}
+                {glance.workModel === "hybrid" && (
+                  <span className="border border-brand-soft bg-brand-softer px-2 py-0.5 font-mono text-xs text-link">
+                    {glance.workModelDetail ? `Hybrid · ${glance.workModelDetail}` : "Hybrid"}
+                  </span>
+                )}
+                {glance.workModel === "onsite" && <span className="border border-line bg-muted px-2 py-0.5 font-mono text-xs text-body">On-site</span>}
+                {glance.visa === "no" && <span className="border border-danger/30 bg-danger-soft px-2 py-0.5 font-mono text-xs text-danger">No visa sponsorship</span>}
+                {glance.visa === "yes" && <span className="border border-success/30 bg-success-soft px-2 py-0.5 font-mono text-xs text-success">Visa sponsorship offered</span>}
+                {glance.travel && <span className="border border-line bg-muted px-2 py-0.5 font-mono text-xs text-body">{glance.travel}</span>}
+                {glance.housing === "provided" && <span className="border border-success/30 bg-success-soft px-2 py-0.5 font-mono text-xs text-success">Housing provided</span>}
+                {glance.housing === "stipend" && <span className="border border-success/30 bg-success-soft px-2 py-0.5 font-mono text-xs text-success">Housing stipend</span>}
+                {glance.housing === "not_provided" && <span className="border border-line bg-muted px-2 py-0.5 font-mono text-xs text-body">No housing</span>}
+                {glance.clearance && <span className="border border-danger/30 bg-danger-soft px-2 py-0.5 font-mono text-xs text-danger">Clearance required</span>}
+                {glance.extras && glance.extras.length > 0 && (
+                  <span className="border border-line bg-surface px-2 py-0.5 font-mono text-xs text-body">
+                    To apply: {glance.extras.map((e) => EXTRA_NAMES[e] ?? e).join(" · ")}
+                  </span>
+                )}
+              </div>
+            </section>
+          )}
+
           {requirements.length > 0 && (
             <section className="flex flex-col gap-2">
               <h3 className="font-mono text-[11px] font-medium tracking-[0.04em] text-subtle uppercase">Requirements at a glance</h3>

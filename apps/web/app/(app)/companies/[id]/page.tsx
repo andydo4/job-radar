@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Fragment } from "react";
-import { Badge, EmptyState, PageHeader } from "@/components/ui";
+import { Badge, EmptyState, PageHeader, StatCard } from "@/components/ui";
 import { CompanyPrefButtons } from "@/components/company-pref-button";
 import {
   EMPLOYMENT_LABEL,
@@ -15,7 +15,10 @@ import {
   salaryLabel,
   timeAgo,
   timingLabel,
+  visaBadge,
+  workModelBadge,
   type JobGroup,
+  type SortKey,
 } from "@/lib/jobs";
 import { getCompanyPrefs, getJobActions, getProfile, noteVisit, type CompanyPref } from "@/lib/me";
 import { qualify, timelineTag, type Profile } from "@/lib/profile";
@@ -45,7 +48,7 @@ const LEVEL_LABEL: Record<string, string> = {
 const QUALIFY_TONE = { likely: "success", stretch: "warning", unlikely: "danger" } as const;
 
 // ---------------------------------------------------------------------------
-// Job card (same shape as on /jobs but without the view / filter complexity)
+// Job card
 // ---------------------------------------------------------------------------
 
 function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; pref: CompanyPref | null }) {
@@ -61,6 +64,8 @@ function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; p
   const type = j.employment_type && j.employment_type !== "full_time" ? EMPLOYMENT_LABEL[j.employment_type] : null;
   const q = qualify(profile, j);
   const when = timelineTag(profile, { ...j, locations: g.locations });
+  const model = workModelBadge(j);
+  const visa = visaBadge(j.visa_sponsorship);
   const page = `/jobs/${j.id}?back=${encodeURIComponent(`/companies/${j.company_id}`)}`;
 
   return (
@@ -71,7 +76,25 @@ function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; p
       closed={g.closed}
       verified={g.closed ? "no longer on the company's site" : `verified ${timeAgo(j.last_seen_at)}`}
       hiddenView={false}
-      footer={!g.closed && <JobDetails id={j.id} requirements={j.requirements ?? []} pageHref={page} applyUrl={j.url} />}
+      footer={
+        !g.closed && (
+          <JobDetails
+            id={j.id}
+            requirements={j.requirements ?? []}
+            pageHref={page}
+            applyUrl={j.url}
+            glance={{
+              workModel: j.work_model,
+              workModelDetail: j.work_model_detail,
+              visa: j.visa_sponsorship,
+              travel: j.travel,
+              housing: j.housing,
+              clearance: j.clearance_required,
+              extras: j.application_extras,
+            }}
+          />
+        )
+      }
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-subtle">
         {g.isNew && <Badge tone="new">NEW</Badge>}
@@ -83,8 +106,10 @@ function CompanyJobCard({ g, profile, pref }: { g: JobGroup; profile: Profile; p
       </Link>
       <p className="mt-0.5 truncate font-mono text-xs text-subtle">{locText}</p>
 
-      {(when || pay || timing || deadline || q) && (
+      {(when || pay || timing || deadline || q || model || visa) && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {model && <Badge tone={model.tone}>{model.label}</Badge>}
+          {visa && <Badge tone={visa.tone}>{visa.label}</Badge>}
           {when && (
             <Badge tone={when.tone} className="font-semibold">
               {when.label}
@@ -138,14 +163,33 @@ function FamilyHeader({ label, count }: { label: string; count: number }) {
   );
 }
 
+function Chip({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      scroll={false}
+      aria-current={active ? "true" : undefined}
+      className={`inline-flex h-9 shrink-0 items-center gap-1.5 border px-3 font-mono text-xs whitespace-nowrap transition-colors duration-100 ${
+        active ? "border-brand bg-brand text-white" : "border-line bg-surface text-body hover:border-line-strong hover:bg-muted"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 export default async function CompanyPage(props: PageProps<"/companies/[id]">) {
   const { id } = await props.params;
+  const sp = await props.searchParams;
 
   if (!/^[a-z0-9-]{1,80}$/.test(id)) notFound();
+
+  const kind = sp.kind === "intern" || sp.kind === "fulltime" ? (sp.kind as "intern" | "fulltime") : undefined;
+  const sort = (["company", "pay", "deadline"] as const).find((k) => k === sp.sort) as SortKey | undefined;
 
   const { supabase, user } = await requireUser();
   const [company, profile, actions, newSince, companyPrefs] = await Promise.all([
@@ -157,27 +201,44 @@ export default async function CompanyPage(props: PageProps<"/companies/[id]">) {
   ]);
 
   if (!company) notFound();
-  // TS doesn't know notFound() throws — assert non-null so the rest of the function is clean.
   const co = company!;
 
   const viewer = { profile, actions, newSince, companyPrefs };
 
-  // Fetch all of this company's jobs (all views, no "for you" filtering).
-  const { groups } = await getJobs(supabase, { view: "all", company: id }, viewer);
+  // Fetch all jobs for stats and the filtered set for display
+  const [{ groups: allGroups }, { groups: filteredGroups }] = await Promise.all([
+    getJobs(supabase, { view: "all", company: id }, viewer),
+    getJobs(supabase, { view: "all", company: id, kind, sort }, viewer),
+  ]);
 
-  // Group by role family for display.
+  // Quick stat counts across all open jobs
+  const internCount = allGroups.filter((g) => g.lead.seniority === "intern" || g.lead.employment_type === "intern").length;
+  const fulltimeCount = allGroups.filter((g) => g.lead.seniority !== "intern" && g.lead.employment_type !== "intern").length;
+  const newCount = allGroups.filter((g) => g.isNew).length;
+
+  // Group filtered jobs by role family for display
   const byFamily = new Map<string, JobGroup[]>();
-  for (const g of groups) {
+  for (const g of filteredGroups) {
     const fam = g.lead.role_family;
     const arr = byFamily.get(fam) ?? [];
     arr.push(g);
     byFamily.set(fam, arr);
   }
-  // Sort families by number of roles desc.
   const families = [...byFamily.entries()].sort((a, b) => b[1].length - a[1].length);
 
   const pref = companyPrefs.get(id) ?? null;
   const segmentLabel = SEGMENT_LABEL[co.segment] ?? co.segment;
+
+  // Build filter query strings
+  const filterHref = (nextKind?: string, nextSort?: string) => {
+    const p = new URLSearchParams();
+    const k = nextKind !== undefined ? nextKind : kind;
+    const s = nextSort !== undefined ? nextSort : sort;
+    if (k) p.set("kind", k);
+    if (s) p.set("sort", s);
+    const qs = p.toString();
+    return qs ? `/companies/${id}?${qs}` : `/companies/${id}`;
+  };
 
   return (
     <div className="flex flex-col gap-6">
@@ -207,14 +268,61 @@ export default async function CompanyPage(props: PageProps<"/companies/[id]">) {
         </div>
       </div>
 
-      {groups.length === 0 ? (
+      {/* Quick stats grid */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+        <StatCard label="Open roles" value={co.open} />
+        <StatCard label="Internships" value={internCount} />
+        <StatCard label="Full-time" value={fulltimeCount} />
+        <StatCard label="New recently" value={newCount} tone={newCount > 0 ? "new" : undefined} meta={newCount > 0 ? "NEW" : undefined} />
+      </div>
+
+      {/* Filter and sort bar */}
+      <div className="flex flex-col gap-3 border-y border-line py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[11px] font-medium tracking-[0.04em] text-subtle uppercase">Role kind:</span>
+          <Chip href={filterHref("", undefined)} active={!kind}>
+            All ({co.open})
+          </Chip>
+          <Chip href={filterHref("intern", undefined)} active={kind === "intern"}>
+            Internships ({internCount})
+          </Chip>
+          <Chip href={filterHref("fulltime", undefined)} active={kind === "fulltime"}>
+            Full-time ({fulltimeCount})
+          </Chip>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-mono text-[11px] font-medium tracking-[0.04em] text-subtle uppercase">Sort:</span>
+          <Chip href={filterHref(undefined, "")} active={!sort}>
+            Newest
+          </Chip>
+          <Chip href={filterHref(undefined, "deadline")} active={sort === "deadline"}>
+            Deadline
+          </Chip>
+          <Chip href={filterHref(undefined, "pay")} active={sort === "pay"}>
+            Highest pay
+          </Chip>
+        </div>
+      </div>
+
+      {filteredGroups.length === 0 ? (
         <EmptyState
-          title="No open jobs right now"
-          body="Primer checks this company every 10 minutes. Check back soon, or star it to keep it front of mind."
+          title={allGroups.length === 0 ? "No open jobs right now" : "No matching roles"}
+          body={
+            allGroups.length === 0
+              ? "Primer checks this company every 10 minutes. Check back soon, or star it to keep it front of mind."
+              : "No roles match this filter. Try viewing all roles."
+          }
           action={
-            <Link href="/jobs?view=all" className="font-mono text-sm text-link hover:underline">
-              See all open jobs →
-            </Link>
+            kind ? (
+              <Link href={`/companies/${id}`} className="font-mono text-sm text-link hover:underline">
+                View all open roles →
+              </Link>
+            ) : (
+              <Link href="/jobs?view=all" className="font-mono text-sm text-link hover:underline">
+                See all open jobs →
+              </Link>
+            )
           }
         />
       ) : (

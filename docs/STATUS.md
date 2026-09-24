@@ -22,14 +22,16 @@ Code: this repo (public, github.com/andydo4/job-radar). Live site: Vercel projec
 
 ## Status (2026-09-24)
 - Migrations 0001–0006 all run in Supabase (0006 includes careersite, audience columns, profiles.after_grad).
+- Migration 0007 (`supabase/migrations/0007_glance.sql`) created: adds work_model, work_model_detail, visa_sponsorship, travel, clearance_required, housing, application_extras; updates `update_job_details`. (Run in Supabase before pushing worker).
 - Website: For you / All / Saved / Applied / Hidden; qualify + timeline tags; new since last visit; Save/Applied/Hide; `/go/[id]` apply-time check; PWA; filter bar (quick toggles, Filters panel, multi-select types, pills); filters remembered per device; star/hide companies; company name links to its listings.
 - Companies: ~100 in seed/companies.csv incl. 25+ Workday big pharma/tools/CROs and 3 careersite boards (AbbVie, Bayer, Boehringer).
-- Poller: Workday US-only via the board's country facet; ≤3 big-board full reads per run; careers-site feeds hourly; backfill 120 job pages/run for showable roles; DETAILS_VERSION 3.
-- **Company pages** (`/companies/[id]`): built 2026-09-24. New route `app/(app)/companies/[id]/page.tsx`. Company name on every job card (jobs list + job detail page + Settings company list) now links there. Page shows: segment eyebrow, name, open-role count, Star/Hide buttons, Careers site link, and all open jobs grouped by role family. Uses `getCompany()` added to `lib/jobs.ts` (fetches `companies.careersite_url` — confirm column exists in DB; migration 0006 may already include it, or add it manually). Company-name link changed from `/jobs?view=all&company=X` → `/companies/X`.
+- Poller: Workday US-only via the board's country facet; ≤3 big-board full reads per run; careers-site feeds hourly; backfill 120 job pages/run for showable roles; DETAILS_VERSION 4 (re-processes open jobs for at-a-glance fields).
+- **Company pages** (`/companies/[id]`): built 2026-09-24. Header with name, segment, open-role count, Star/Hide buttons, Careers site link. 4-metric StatCard grid (open roles, internships, full-time, new recently), role kind filter chips (All, Internships, Full-time), sort options (Newest, Deadline, Pay), and all open jobs grouped by role family with glance badges.
+- **At-a-glance parsing**: built 2026-09-24 (`packages/shared/src/glance.ts`, 55 tests). Pure pattern extraction for: work model (remote/hybrid days/on-site), visa sponsorship, travel, security clearance, internship housing, and application extras (cover letter, transcript, references, coding test, case study). Surfaced on card badge row (work model, no-visa alert), card Details dropdown ("At a glance" badges), and job detail page 4-column fact grid.
 
 ## To do
-- See docs/roadmap.md (US map, better at-a-glance parsing). Company pages are **done**.
-- **DB check**: confirm `companies.careersite_url` column exists (migration 0006). If not, run: `ALTER TABLE companies ADD COLUMN careersite_url text;` in Supabase SQL editor.
+- **DB action**: run `supabase/migrations/0007_glance.sql` in Supabase SQL editor.
+- See docs/roadmap.md (US map is next when Andy wants it). Company pages and At-a-glance parsing are **done**.
 - Check possible wrong-company matches before adding: orbital, candid, genesis, nabla, caribou, scribe, resilience, seer, latch, watershed, cello, polaris.
 - Still missing: Novo Nordisk (custom JSON at novonordisk.com/bin/nncorp/careersearch), Teva, Astellas/Daiichi/CSL/Organon/Zoetis/Viatris (Workday guesses in candidates.csv: run `npm run discover`), most consulting/VC/institutes.
 - Hardening: disable the Supabase Email provider; after the friend's first sign-in, turn off "Allow new users to sign up".

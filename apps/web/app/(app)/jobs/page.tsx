@@ -22,6 +22,8 @@ import {
   salaryLabel,
   timeAgo,
   timingLabel,
+  visaBadge,
+  workModelBadge,
   type JobFilters,
   type JobGroup,
   type SortKey,
@@ -191,6 +193,8 @@ function JobCard({
   const q = qualify(profile, j);
   const when = timelineTag(profile, { ...j, locations: g.locations });
   const page = jobHref(j.id, listHref);
+  const model = workModelBadge(j);
+  const visa = visaBadge(j.visa_sponsorship);
 
   return (
     <JobCardShell
@@ -200,7 +204,25 @@ function JobCard({
       closed={g.closed}
       verified={g.closed ? "no longer on the company's site" : `verified ${timeAgo(j.last_seen_at)}`}
       hiddenView={hiddenView}
-      footer={!g.closed && <JobDetails id={j.id} requirements={j.requirements ?? []} pageHref={page} applyUrl={j.url} />}
+      footer={
+        !g.closed && (
+          <JobDetails
+            id={j.id}
+            requirements={j.requirements ?? []}
+            pageHref={page}
+            applyUrl={j.url}
+            glance={{
+              workModel: j.work_model,
+              workModelDetail: j.work_model_detail,
+              visa: j.visa_sponsorship,
+              travel: j.travel,
+              housing: j.housing,
+              clearance: j.clearance_required,
+              extras: j.application_extras,
+            }}
+          />
+        )
+      }
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-subtle">
         {g.isNew && <Badge tone="new">NEW</Badge>}
@@ -224,8 +246,10 @@ function JobCard({
       <p className="mt-0.5 truncate font-mono text-xs text-subtle">{locText}</p>
 
       {/* The facts people decide on first */}
-      {(when || pay || timing || deadline || q) && (
+      {(when || pay || timing || deadline || q || model || visa) && (
         <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {model && <Badge tone={model.tone}>{model.label}</Badge>}
+          {visa && <Badge tone={visa.tone}>{visa.label}</Badge>}
           {when && (
             <Badge tone={when.tone} className="font-semibold">
               {when.label}
