@@ -40,3 +40,70 @@ flagship-pioneering,Flagship Pioneering,greenhouse,flagshippioneeringinc,vc,true
 5am-ventures,5AM Ventures,lever,5amventures,vc,true
 andreessen-horowitz,Andreessen Horowitz,greenhouse,a16z,vc,true
 arc-institute,Arc Institute,greenhouse,arcinstitute,academic,true
+# Added from `npm run discover` on 2026-09-24 (round 2). Workday boards are read US-only when the board has a country filter.
+# Not added yet (name matched, but it may be a different company; check the link first): orbital, candid, genesis, nabla,
+# caribou, scribe, resilience, seer, latch, watershed, cello, polaris. Genentech (roche-ext showed 3 US jobs) left out.
+moderna,Moderna,workday,modernatx|wd1|M_tx,biotech,true
+vertex-pharmaceuticals,Vertex Pharmaceuticals,workday,vrtx|wd501|vertex_careers,biotech,true
+regeneron,Regeneron,workday,regeneron|wd1|Careers,biotech,true
+biogen,Biogen,workday,biibhr|wd3|external,biotech,true
+merck,Merck,workday,msd|wd5|SearchJobs,pharma,true
+johnson-and-johnson,Johnson & Johnson,workday,jj|wd5|JJ,pharma,true
+amgen,Amgen,workday,amgen|wd1|Careers,pharma,true
+bristol-myers-squibb,Bristol Myers Squibb,workday,bristolmyerssquibb|wd5|BMS,pharma,true
+novartis,Novartis,workday,novartis|wd3|Novartis_Careers,pharma,true
+sanofi,Sanofi,workday,sanofi|wd3|SanofiCareers,pharma,true
+astrazeneca,AstraZeneca,workday,astrazeneca|wd3|Careers,pharma,true
+gsk,GSK,workday,gsk|wd5|GSKCareers,pharma,true
+takeda,Takeda,workday,takeda|wd502|External,pharma,true
+thermo-fisher-scientific,Thermo Fisher Scientific,workday,thermofisher|wd5|ThermoFisherCareers,tools,true
+illumina,Illumina,workday,illumina|wd1|illumina-careers,tools,true
+lonza,Lonza,workday,lonza|wd3|Lonza_Careers,tools,true
+agilent-technologies,Agilent Technologies,workday,agilent|wd5|Agilent_Careers,tools,true
+labcorp,Labcorp,workday,labcorp|wd1|External,cro,true
+iqvia,IQVIA,workday,iqvia|wd1|IQVIA,cro,true
+syneos-health,Syneos Health,workday,syneoshealth|wd12|Syneos_Health_External_Site,cro,true
+parexel,Parexel,workday,parexel|wd1|Parexel_External_Careers,cro,true
+icon-plc,ICON plc,workday,icon|wd3|broadbean_external,cro,true
+fortrea,Fortrea,workday,fortrea|wd1|Fortrea,cro,true
+dyne-therapeutics,Dyne Therapeutics,greenhouse,dynetherapeutics,biotech,true
+stoke-therapeutics,Stoke Therapeutics,greenhouse,stoketherapeutics,biotech,true
+scholar-rock,Scholar Rock,lever,scholarrock,biotech,true
+korro-bio,Korro Bio,lever,korrobio,biotech,true
+tango-therapeutics,Tango Therapeutics,greenhouse,tangotherapeutics,biotech,true
+prime-medicine,Prime Medicine,greenhouse,primemedicine,biotech,true
+rapport-therapeutics,Rapport Therapeutics,greenhouse,rapporttherapeutics,biotech,true
+nuvalent,Nuvalent,greenhouse,nuvalent,biotech,true
+apogee-therapeutics,Apogee Therapeutics,greenhouse,apogeetherapeutics,biotech,false
+manifold-bio,Manifold Bio,greenhouse,manifoldbio,biotech,true
+valo-health,Valo Health,greenhouse,valohealth,biotech,true
+elevatebio,ElevateBio,greenhouse,elevatebio,biotech,true
+seres-therapeutics,Seres Therapeutics,greenhouse,seres,biotech,true
+xilio-therapeutics,Xilio Therapeutics,greenhouse,xiliotherapeutics,biotech,true
+entrada-therapeutics,Entrada Therapeutics,greenhouse,entradatherapeutics,biotech,true
+keros-therapeutics,Keros Therapeutics,greenhouse,keros,biotech,true
+praxis-precision-medicines,Praxis Precision Medicines,greenhouse,praxisprecisionmedicines,biotech,true
+formation-bio,Formation Bio,greenhouse,formationbio,biotech,true
+inceptive,Inceptive,greenhouse,inceptive,biotech,true
+neumora-therapeutics,Neumora Therapeutics,greenhouse,neumora,biotech,true
+latent-labs,Latent Labs,ashby,latentlabs,biotech,true
+absci,Absci,ashby,absci,biotech,true
+noetik,Noetik,greenhouse,noetik,biotech,true
+altos-labs,Altos Labs,greenhouse,altoslabs,biotech,true
+freenome,Freenome,greenhouse,freenome,biotech,true
+grail,Grail,lever,grailbio,biotech,true
+septerna,Septerna,greenhouse,septerna,biotech,true
+element-biosciences,Element Biosciences,greenhouse,elementbiosciences,tools,true
+ultima-genomics,Ultima Genomics,greenhouse,ultimagenomics,tools,true
+cellares,Cellares,lever,cellares,tools,false
+dotmatics,Dotmatics,greenhouse,dotmatics,tools,true
+inizio,Inizio,greenhouse,inizio,consulting,true
+precision-aq,Precision AQ,greenhouse,precisionaq,consulting,true
+charles-river-associates,Charles River Associates,greenhouse,charlesriverassociates,consulting,true
+# Big pharma found by hand on 2026-09-24. Lilly's Workday is on wd115; Genentech has its own Roche site.
+eli-lilly,Eli Lilly,workday,lilly|wd115|LLY,pharma,true
+genentech,Genentech,workday,roche|wd3|ROG-A2O-GENE,pharma,true
+# Own careers sites, read from the job feed they publish for search engines (ats_key = feed URL).
+abbvie,AbbVie,careersite,https://careers.abbvie.com/en/vacanciessitemap.xml,pharma,true
+bayer,Bayer,careersite,https://jobs.bayer.com/sitemap.xml,pharma,true
+boehringer-ingelheim,Boehringer Ingelheim,careersite,https://jobs.boehringer-ingelheim.com/sitemap.xml,pharma,true

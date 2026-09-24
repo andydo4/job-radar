@@ -2,7 +2,7 @@
 // is still up. Mirrors the endpoints in packages/shared/src/adapters (the website is a
 // separate app, so the few URLs it needs are repeated here).
 
-export type Ats = "greenhouse" | "lever" | "ashby" | "workday";
+export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "careersite";
 export type LiveStatus = "open" | "closed" | "unknown";
 
 export interface LiveCheckJob {
@@ -10,6 +10,8 @@ export interface LiveCheckJob {
   /** companies.ats_key: board slug, or "tenant|wdN|site" for Workday. */
   atsKey: string;
   externalId: string;
+  /** The posting's own page (careers sites: the only thing to check). */
+  url?: string;
 }
 
 type FetchLike = (url: string, init?: RequestInit) => Promise<Response>;
@@ -29,6 +31,8 @@ export function liveCheckUrl(j: LiveCheckJob): string | null {
       if (!tenant || !wd || !site || !j.externalId.startsWith("/")) return null;
       return `https://${tenant}.${wd}.myworkdayjobs.com/wday/cxs/${tenant}/${site}${j.externalId}`;
     }
+    case "careersite":
+      return j.url && /^https:\/\//.test(j.url) ? j.url : null;
     default:
       return null;
   }
@@ -37,6 +41,7 @@ export function liveCheckUrl(j: LiveCheckJob): string | null {
 /** Decide from the board's answer. Anything unexpected is "unknown" (we then just send you to the page). */
 export function interpretLiveCheck(ats: Ats, externalId: string, status: number, body: unknown): LiveStatus {
   if (status === 404 || status === 410) return ats === "ashby" ? "unknown" : "closed"; // Ashby 404 = board gone, not the job
+  if (ats === "careersite") return "unknown"; // a 200 page might still say "no longer available"; just send them there
   if (status !== 200) return "unknown";
   switch (ats) {
     case "greenhouse":
@@ -70,7 +75,7 @@ export async function liveCheck(j: LiveCheckJob, fetchImpl: FetchLike = fetch, t
       redirect: "follow",
     });
     let body: unknown = null;
-    if (res.status === 200) body = await res.json().catch(() => null);
+    if (res.status === 200 && j.ats !== "careersite") body = await res.json().catch(() => null);
     return interpretLiveCheck(j.ats, j.externalId, res.status, body);
   } catch {
     return "unknown"; // timeout, network error: don't block anyone from applying

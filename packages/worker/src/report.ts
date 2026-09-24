@@ -4,7 +4,8 @@ export interface CompanyRunResult {
   company: Company;
   ok: boolean;
   error?: string;
-  mode: "full" | "partial";
+  /** "waiting": a new Workday board queued for its first full read in a later run. */
+  mode: "full" | "partial" | "waiting";
   fetched: number;
   requests: number;
   newCount: number;

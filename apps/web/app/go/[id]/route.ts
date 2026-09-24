@@ -30,7 +30,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<"/go/[id]">) {
   if (!job) return NextResponse.redirect(`${origin}/jobs`);
   if (job.closed_at) return NextResponse.redirect(`${origin}/jobs/${job.id}?closed=1`);
 
-  const status = job.company ? await liveCheck({ ats: job.company.ats, atsKey: job.company.ats_key, externalId: job.external_id }) : "unknown";
+  const status = job.company ? await liveCheck({ ats: job.company.ats, atsKey: job.company.ats_key, externalId: job.external_id, url: job.url }) : "unknown";
   if (status === "closed") {
     await supabase.rpc("mark_job_closed", { p_job_id: job.id });
     return NextResponse.redirect(`${origin}/jobs/${job.id}?closed=1`);

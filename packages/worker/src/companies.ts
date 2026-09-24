@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { Ats, Company, Segment } from "@job-radar/shared";
 
-const ATS: Ats[] = ["greenhouse", "lever", "ashby", "workday"];
+const ATS: Ats[] = ["greenhouse", "lever", "ashby", "workday", "careersite"];
 const SEGMENTS: Segment[] = ["pharma", "biotech", "tools", "cro", "consulting", "vc", "academic", "tech"];
 
 /** Tiny CSV parser: handles quoted fields with commas and "" escapes. */
@@ -55,6 +55,7 @@ export function loadCompanies(path: string): Company[] {
     if (!ATS.includes(ats)) throw new Error(`${path}:${line}: unknown ats "${r.ats}"`);
     if (!SEGMENTS.includes(segment)) throw new Error(`${path}:${line}: unknown segment "${r.segment}"`);
     if (!r.ats_key) throw new Error(`${path}:${line}: missing ats_key`);
+    if (ats === "careersite" && !/^https:\/\/[^\s,]+$/.test(r.ats_key)) throw new Error(`${path}:${line}: careersite ats_key must be the feed's https URL`);
     return {
       id: r.id,
       name: r.name || r.id,

@@ -90,6 +90,38 @@ export interface WorkdayOptions {
   maxTotalPages?: number;
   /** Pause between page requests, ms. */
   pageDelayMs?: number;
+  /** Ask Workday for US jobs only when the board offers a country filter (default true). */
+  usOnly?: boolean;
+}
+
+interface WdFacetNode {
+  facetParameter?: string;
+  descriptor?: string;
+  id?: string;
+  values?: WdFacetNode[];
+}
+
+const US_NAMES = /^(united states( of america)?|usa|us)$/i;
+
+/**
+ * Find the board's own "Country = United States" filter in the facets Workday sends back
+ * (the parameter name differs per company: locationCountry, Location_Country, ...).
+ */
+export function findUsFacet(data: unknown): { param: string; id: string } | null {
+  const facets = (data as { facets?: WdFacetNode[] } | null)?.facets;
+  if (!Array.isArray(facets)) return null;
+  const found: { param: string; id: string }[] = [];
+  const walk = (nodes: WdFacetNode[], param: string | undefined) => {
+    for (const n of nodes) {
+      const p = n.facetParameter ?? param;
+      if (p && n.id && n.descriptor && US_NAMES.test(n.descriptor.trim())) found.push({ param: p, id: n.id });
+      if (Array.isArray(n.values)) walk(n.values, n.facetParameter ?? param);
+    }
+  };
+  walk(facets, undefined);
+  // Only trust an actual country filter. A "locations" list that happens to contain a site called
+  // "United States" can match just a handful of jobs and would silently hide the rest.
+  return found.find((f) => /country/i.test(f.param)) ?? null;
 }
 
 export async function fetchWorkday(
@@ -108,10 +140,20 @@ export async function fetchWorkday(
   let requests = 0;
   let reachedEnd = false;
 
+  // One small request to learn the board's US filter; then every page asks for US jobs only.
+  // (Big pharma boards are mostly non-US, so this cuts the pages to read a lot.)
+  let appliedFacets: Record<string, string[]> = {};
+  if (opts.usOnly !== false) {
+    const probe = await requestJson(ctx, url, { method: "POST", body: { appliedFacets: {}, limit: 1, offset: 0, searchText: "" } });
+    requests++;
+    const us = findUsFacet(probe);
+    if (us) appliedFacets = { [us.param]: [us.id] };
+  }
+
   for (let page = 0; page < maxPages; page++) {
     const data = await requestJson(ctx, url, {
       method: "POST",
-      body: { appliedFacets: {}, limit: WORKDAY_PAGE_SIZE, offset: page * WORKDAY_PAGE_SIZE, searchText: "" },
+      body: { appliedFacets, limit: WORKDAY_PAGE_SIZE, offset: page * WORKDAY_PAGE_SIZE, searchText: "" },
     });
     requests++;
     const parsed = parseWorkdayPage(company, k, data);

@@ -55,6 +55,31 @@ describe("discover", () => {
   }, 20_000);
 });
 
+describe("Workday links", () => {
+  it("verifies the board, fixes a wrong wdN, and counts US jobs", async () => {
+    const fetch: FetchFn = async (url, init) => {
+      if (!url.startsWith("https://modernatx.wd5.")) return { status: 404, json: async () => ({}) };
+      const body = JSON.parse(init?.body ?? "{}");
+      const us = Object.keys(body.appliedFacets ?? {}).length > 0;
+      return {
+        status: 200,
+        json: async () => ({
+          total: us ? 310 : 420,
+          facets: [{ facetParameter: "locationCountry", values: [{ descriptor: "United States of America", id: "us1" }] }],
+        }),
+      };
+    };
+    const hit = await discoverOne({ fetch, userAgent: "t" }, "Moderna", "https://modernatx.wd1.myworkdayjobs.com/en-US/M_tx/job/X_R1");
+    expect(hit).toMatchObject({ ats: "workday", key: "modernatx|wd5|M_tx", jobs: 420, usJobs: 310 });
+  });
+
+  it("returns nothing for a link that doesn't answer", async () => {
+    const fetch: FetchFn = async () => ({ status: 404, json: async () => ({}) });
+    expect(await discoverOne({ fetch, userAgent: "t" }, "Nope", "https://nope.wd1.myworkdayjobs.com/Careers")).toBeNull();
+    expect(await discoverOne({ fetch, userAgent: "t" }, "Nope", "https://jobs.lever.co/nope")).toBeNull();
+  });
+});
+
 describe("workday-test helpers", () => {
   it("reads Workday posted-on text", () => {
     expect(postedDaysAgo("Posted Today")).toBe(0);

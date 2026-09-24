@@ -68,13 +68,29 @@ class FakeDb implements JobsDb {
   async insertRun(r: RunRow) {
     this.runs.push(r);
   }
-  async loadJobsNeedingDetails(limit: number, version: number): Promise<JobNeedingDetails[]> {
-    return [...this.jobs.values()].filter((j) => !j.closed_at && j.details_version < version).slice(0, limit);
+  async loadJobsNeedingDetails(limit: number, version: number, pageCompanyIds: string[] = []): Promise<JobNeedingDetails[]> {
+    return [...this.jobs.values()]
+      .filter(
+        (j) =>
+          !j.closed_at &&
+          j.details_version < version &&
+          ((["intern", "entry", "unspecified"].includes(j.seniority) && j.role_family !== "other") ||
+            (j.details_version === 0 && pageCompanyIds.includes(j.company_id))),
+      )
+      .slice(0, limit);
   }
   async updateJobDetails(rows: JobDetailsUpdate[]) {
     for (const u of rows) {
       const j = [...this.jobs.values()].find((x) => x.id === u.id)!;
-      Object.assign(j, { ...u, description_text: u.description_text ?? j.description_text, locations: u.locations ?? j.locations });
+      Object.assign(j, {
+        ...u,
+        description_text: u.description_text ?? j.description_text,
+        locations: u.locations ?? j.locations,
+        title: u.title ?? j.title,
+        role_family: u.role_family ?? j.role_family,
+        seniority: u.seniority ?? j.seniority,
+        dedupe_key: u.dedupe_key ?? j.dedupe_key,
+      });
     }
   }
 }
@@ -184,7 +200,10 @@ describe("job details", () => {
 
     // Keep going until everything is filled in.
     for (let i = 0; i < 5; i++) await backfillDetails(db, ctx, FIXTURE_COMPANIES, summary.fetched, { maxWorkdayFetches: 10 });
-    expect(workday().every((j) => j.details_version === DETAILS_VERSION)).toBe(true);
+    // Every role the site can show is filled in; senior roles are skipped (never shown).
+    const showable = workday().filter((j) => ["intern", "entry", "unspecified"].includes(j.seniority) && j.role_family !== "other");
+    expect(showable.length).toBeGreaterThan(0);
+    expect(showable.every((j) => j.details_version === DETAILS_VERSION)).toBe(true);
     expect((await db.loadJobsNeedingDetails(100, DETAILS_VERSION))).toHaveLength(0);
   });
 

@@ -19,6 +19,7 @@ import {
   greenhouseUrl,
   leverUrl,
   mapLimit,
+  findUsFacet,
   requestJson,
   workdayKeyFromUrl,
   type Ats,
@@ -87,20 +88,62 @@ async function countJobs(ctx: HttpContext, ats: Exclude<Ats, "workday">, slug: s
   }
 }
 
+const WD_HOSTS = ["wd1", "wd3", "wd5", "wd12", "wd2", "wd10", "wd100", "wd101", "wd103", "wd105", "wd108", "wd110", "wd115", "wd501", "wd502", "wd503"];
+
+/**
+ * Check a Workday board really answers, and count its jobs (all, and US).
+ * People often copy a link with the wrong wdN, so the other data centers are tried too.
+ */
+export async function verifyWorkday(ctx: HttpContext, key: string): Promise<{ key: string; jobs: number; usJobs: number | null } | null> {
+  const [tenant, wd, site] = key.split("|");
+  if (!tenant || !wd || !site) return null;
+  const post = async (host: string, appliedFacets: object) => {
+    const url = `https://${tenant}.${host}.myworkdayjobs.com/wday/cxs/${tenant}/${site}/jobs`;
+    try {
+      const res = await ctx.fetch(url, {
+        method: "POST",
+        headers: { "User-Agent": ctx.userAgent, Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ appliedFacets, limit: 1, offset: 0, searchText: "" }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.status !== 200) return null;
+      const data = (await res.json()) as { total?: number };
+      return typeof data?.total === "number" ? data : null;
+    } catch {
+      return null;
+    }
+  };
+  for (const host of [wd, ...WD_HOSTS.filter((h) => h !== wd)]) {
+    const data = await post(host, {});
+    if (!data) continue;
+    const us = findUsFacet(data);
+    const usData = us ? await post(host, { [us.param]: [us.id] }) : null;
+    return { key: `${tenant}|${host}|${site}`, jobs: (data as { total: number }).total, usJobs: usData ? (usData as { total: number }).total : null };
+  }
+  return null;
+}
+
 export interface Hit {
   name: string;
   segment: string;
   ats: Ats;
   key: string;
   jobs: number | null;
+  /** Workday only: jobs in the US. */
+  usJobs?: number | null;
 }
 
 export async function discoverOne(ctx: HttpContext, name: string, careersUrl?: string, extraSlugs: string[] = []): Promise<Hit | null> {
   const segment = "";
   if (careersUrl) {
     const k = keyFromCareersUrl(careersUrl);
+    if (k?.ats === "workday") {
+      const v = await verifyWorkday(ctx, k.key);
+      return v ? { name, segment, ats: "workday", key: v.key, jobs: v.jobs, usJobs: v.usJobs } : null;
+    }
     if (k) {
-      const jobs = k.ats === "workday" ? null : await countJobs(ctx, k.ats, k.key);
+      const jobs = await countJobs(ctx, k.ats, k.key);
+      if (jobs === null) return null; // link didn't lead to a working board
       return { name, segment, ats: k.ats, key: k.key, jobs };
     }
   }
@@ -130,7 +173,8 @@ async function main() {
   const results = await mapLimit(candidates, 3, async (c) => {
     try {
       const hit = await discoverOne(ctx, c.name!, c.careers_url || undefined, (c.slugs ?? "").split(";").map((s) => s.trim()).filter(Boolean));
-      const label = hit ? `${hit.ats}:${hit.key}${hit.jobs === null ? "" : ` (${hit.jobs} jobs)`}` : "not found";
+      const count = hit?.jobs == null ? "" : ` (${hit.jobs} jobs${hit.usJobs != null ? `, ${hit.usJobs} in the US` : ""})`;
+      const label = hit ? `${hit.ats}:${hit.key}${count}` : "not found";
       console.log(`${hit ? (hit.jobs === 0 ? "?" : "✓") : "✗"} ${c.name} -> ${label}`);
       return { c, hit: hit ? { ...hit, segment: c.segment ?? "biotech" } : null };
     } catch (err) {
@@ -146,7 +190,8 @@ async function main() {
   writeFileSync(join(ROOT, "seed/discovered.csv"), ["id,name,ats,ats_key,segment,active", ...rows].join("\n") + "\n");
   console.log(`\n${hits.length} found, ${misses.length} not found. Results written to seed/discovered.csv.`);
   if (misses.length) {
-    console.log(`\nNot found (look these up by hand: open their careers page and copy a job link into careers_url):`);
+    console.log(`\nNot found. Open each careers page, click any job, and paste that link into careers_url in seed/candidates.csv.`);
+    console.log(`(If the link isn't greenhouse.io / lever.co / ashbyhq.com / myworkdayjobs.com, Primer can't read that site yet.)`);
     for (const m of misses) console.log(`  - ${m}`);
   }
   if (write && rows.length) {

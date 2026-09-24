@@ -157,6 +157,63 @@ describe("Workday new jobs are checked on their detail page (US-only)", () => {
     expect(r.allNew).toHaveLength(1);
     expect(r.allNew[0]).toMatchObject({ isUS: false, locations: ["Chihuahua", "Toluca"], country: "Mexico" });
     expect(r.matches).toHaveLength(0);
-    expect(r.results[0]!.requests).toBe(2 + 1); // 2 list pages (board ends on page 2) + 1 detail lookup
+    expect(r.results[0]!.requests).toBe(1 + 2 + 1); // US-filter probe + 2 list pages (board ends on page 2) + 1 detail lookup
+  });
+});
+
+describe("Workday full-sweep budget", () => {
+  it("reads at most N big boards in full per run; new boards wait their turn, then get baselined", async () => {
+    const wd = FIXTURE_COMPANIES.find((c) => c.ats === "workday")!;
+    const boards = [1, 2, 3, 4, 5].map((i) => ({ ...wd, id: `wd-${i}`, name: `Pharma ${i}`, atsKey: `pharma${i}|wd1|Careers` }));
+    const state = emptyState();
+    const base = { companies: boards, state, dryRun: true, fetch: fixturesFetch(FIXTURES), maxWorkdayFullSweeps: 2 };
+
+    const r1 = await runPoll({ ...base, now: clock("2026-09-20T12:00:00Z") });
+    expect(r1.results.map((r) => r.mode)).toEqual(["full", "full", "waiting", "waiting", "waiting"]);
+    expect(r1.results.every((r) => r.ok)).toBe(true);
+
+    const r2 = await runPoll({ ...base, now: clock("2026-09-20T12:10:00Z") });
+    expect(r2.results.map((r) => r.mode)).toEqual(["partial", "partial", "full", "full", "waiting"]);
+
+    const r3 = await runPoll({ ...base, now: clock("2026-09-20T12:20:00Z") });
+    expect(r3.results.map((r) => r.mode)).toEqual(["partial", "partial", "partial", "partial", "full"]);
+    expect(Object.values(state.companies).every((c) => c.baselinedAt)).toBe(true);
+    // Nothing from a first (baseline) read is ever reported as new.
+    expect([...r1.allNew, ...r2.allNew, ...r3.allNew]).toHaveLength(0);
+  });
+});
+
+describe("careers-site boards", () => {
+  const site = { id: "abbvie", name: "AbbVie", ats: "careersite" as const, atsKey: "https://careers.example.com/sitemap.xml", segment: "pharma" as const, active: true };
+  const page = (title: string) =>
+    `<script type="application/ld+json">{"@type":"JobPosting","title":"${title}","description":"<p>BS in Biology. Apply by October 15, 2026.</p>","jobLocation":{"address":{"addressLocality":"Cambridge, MA"}},"datePosted":"2026-09-20T09:00:00Z"}</script>`;
+  const makeFetch = (urls: string[], calls: string[]) =>
+    (async (url: string) => {
+      calls.push(url);
+      const text = url.endsWith("sitemap.xml")
+        ? `<urlset>${urls.map((u) => `<url><loc>${u}</loc></url>`).join("")}</urlset>`
+        : page("Research Associate I, Protein Sciences");
+      return { status: 200, json: async () => ({}), text: async () => text };
+    }) as never;
+
+  it("reads the feed at most hourly, and opens each NEW job's page once", async () => {
+    const state = emptyState();
+    const u = (n: number) => `https://careers.example.com/en/job/research-associate-${n}-in-cambridge-ma-jid-${n}`;
+    const calls: string[] = [];
+    const base = { companies: [site], state, dryRun: true };
+
+    const r1 = await runPoll({ ...base, fetch: makeFetch([u(1), u(2)], calls), now: clock("2026-09-20T12:00:00Z") });
+    expect(r1.results[0]).toMatchObject({ mode: "full", baselined: true, fetched: 2 });
+    expect(calls).toHaveLength(1); // baseline: no page reads
+
+    const r2 = await runPoll({ ...base, fetch: makeFetch([u(1), u(2), u(3)], calls), now: clock("2026-09-20T12:30:00Z") });
+    expect(r2.results[0]!.mode).toBe("waiting"); // not due yet
+    expect(calls).toHaveLength(1);
+
+    const r3 = await runPoll({ ...base, fetch: makeFetch([u(1), u(2), u(3)], calls), now: clock("2026-09-20T13:05:00Z") });
+    expect(r3.results[0]!.mode).toBe("full");
+    expect(r3.allNew).toHaveLength(1);
+    expect(r3.allNew[0]).toMatchObject({ title: "Research Associate I, Protein Sciences", locations: ["Cambridge, MA"], isUS: true, roleFamily: "research" });
+    expect(calls.filter((c) => c.includes("jid-3"))).toHaveLength(1);
   });
 });

@@ -1,6 +1,8 @@
 export interface HttpResponse {
   status: number;
   json(): Promise<unknown>;
+  /** Raw body (careers-site feeds and job pages are XML/HTML, not JSON). */
+  text?(): Promise<string>;
 }
 
 /** Minimal fetch signature so tests and dry runs can swap in fixtures. */
@@ -54,6 +56,22 @@ export async function requestJson(
       signal: AbortSignal.timeout(ctx.timeoutMs ?? 15_000),
     });
     if (res.status >= 200 && res.status < 300) return res.json();
+    const retryable = res.status === 429 || res.status >= 500;
+    if (!retryable || attempt === 1) throw new HttpError(res.status, url);
+    await sleep(2_000 + Math.random() * 2_000);
+  }
+  throw new Error("unreachable");
+}
+
+/** GET a text document (XML feed, HTML page) with the same timeout and retry rules as requestJson. */
+export async function requestText(ctx: HttpContext, url: string): Promise<string> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await ctx.fetch(url, {
+      method: "GET",
+      headers: { "User-Agent": ctx.userAgent, Accept: "text/html,application/xml,text/xml;q=0.9,*/*;q=0.8" },
+      signal: AbortSignal.timeout(ctx.timeoutMs ?? 30_000),
+    });
+    if (res.status >= 200 && res.status < 300) return res.text ? res.text() : String(await res.json());
     const retryable = res.status === 429 || res.status >= 500;
     if (!retryable || attempt === 1) throw new HttpError(res.status, url);
     await sleep(2_000 + Math.random() * 2_000);

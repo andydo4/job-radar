@@ -1,35 +1,71 @@
 id,name,ats,ats_key,segment,active
-alnylam-pharmaceuticals,Alnylam Pharmaceuticals,greenhouse,alnylampharmaceuticals,biotech,true
-beam-therapeutics,Beam Therapeutics,greenhouse,beamtherapeutics,biotech,true
-insitro,insitro,ashby,insitro,biotech,true
-dyno-therapeutics,Dyno Therapeutics,greenhouse,dynotherapeutics,biotech,true
-relay-therapeutics,Relay Therapeutics,greenhouse,relaytherapeutics,biotech,true
-kymera-therapeutics,Kymera Therapeutics,greenhouse,kymeratherapeutics,biotech,true
-asimov,Asimov,ashby,asimov,biotech,true
-xaira-therapeutics,Xaira Therapeutics,greenhouse,xairatherapeutics,biotech,true
-isomorphic-labs,Isomorphic Labs,greenhouse,isomorphiclabs,biotech,true
-eikon-therapeutics,Eikon Therapeutics,greenhouse,eikontherapeutics,biotech,true
-lila-sciences,Lila Sciences,greenhouse,lilasciences,biotech,true
-arsenal-bio,Arsenal Bio,lever,arsenalbio,biotech,true
-tessera-therapeutics,Tessera Therapeutics,greenhouse,tesseratherapeutics,biotech,true
-iambic-therapeutics,Iambic Therapeutics,ashby,iambic-therapeutics,biotech,true
-enveda,Enveda,lever,enveda,biotech,true
-cellarity,Cellarity,greenhouse,cellarity,biotech,true
-octant,Octant,greenhouse,octantbio,biotech,true
-profluent,Profluent,greenhouse,profluent,biotech,true
-chai-discovery,Chai Discovery,ashby,chaidiscovery,biotech,true
-eli-lilly,Eli Lilly,ashby,eli,pharma,true
-novo-nordisk,Novo Nordisk,ashby,novo,pharma,true
-synthego,Synthego,lever,synthego,tools,true
-culture-biosciences,Culture Biosciences,greenhouse,culturebiosciences,tools,true
-charles-river-laboratories,Charles River Laboratories,greenhouse,charles,cro,true
-blue-matter-consulting,Blue Matter Consulting,lever,blue,consulting,true
-clarion-healthcare,Clarion Healthcare,ashby,clarion,consulting,true
-avalere-health,Avalere Health,lever,avalerehealth,consulting,true
-flagship-pioneering,Flagship Pioneering,greenhouse,flagshippioneeringinc,vc,true
-arch-venture-partners,ARCH Venture Partners,ashby,arch,vc,true
-atlas-venture,Atlas Venture,ashby,atlas,vc,true
+moderna,Moderna,workday,modernatx|wd1|M_tx,biotech,true
+vertex-pharmaceuticals,Vertex Pharmaceuticals,workday,vrtx|wd501|vertex_careers,biotech,true
+biogen,Biogen,workday,biibhr|wd3|external,biotech,true
+regeneron,Regeneron,workday,regeneron|wd1|Careers,biotech,true
+amgen,Amgen,workday,amgen|wd1|Careers,pharma,true
+bristol-myers-squibb,Bristol Myers Squibb,workday,bristolmyerssquibb|wd5|BMS,pharma,true
+merck,Merck,workday,msd|wd5|SearchJobs,pharma,true
+johnson-and-johnson,Johnson & Johnson,workday,jj|wd5|JJ,pharma,true
+novartis,Novartis,workday,novartis|wd3|Novartis_Careers,pharma,true
+sanofi,Sanofi,workday,sanofi|wd3|SanofiCareers,pharma,true
+astrazeneca,AstraZeneca,workday,astrazeneca|wd3|Careers,pharma,true
+gsk,GSK,workday,gsk|wd5|GSKCareers,pharma,true
+takeda,Takeda,workday,takeda|wd502|External,pharma,true
+genentech,Genentech,workday,roche|wd3|roche-ext,pharma,true
+thermo-fisher-scientific,Thermo Fisher Scientific,workday,thermofisher|wd5|ThermoFisherCareers,tools,true
+illumina,Illumina,workday,illumina|wd1|illumina-careers,tools,true
+agilent-technologies,Agilent Technologies,workday,agilent|wd5|Agilent_Careers,tools,true
+lonza,Lonza,workday,lonza|wd3|Lonza_Careers,tools,true
+iqvia,IQVIA,workday,iqvia|wd1|IQVIA,cro,true
+labcorp,Labcorp,workday,labcorp|wd1|External,cro,true
+parexel,Parexel,workday,parexel|wd1|Parexel_External_Careers,cro,true
+syneos-health,Syneos Health,workday,syneoshealth|wd12|Syneos_Health_External_Site,cro,true
+icon-plc,ICON plc,workday,icon|wd3|broadbean_external,cro,true
+fortrea,Fortrea,workday,fortrea|wd1|Fortrea,cro,true
+dyne-therapeutics,Dyne Therapeutics,greenhouse,dynetherapeutics,biotech,true
+stoke-therapeutics,Stoke Therapeutics,greenhouse,stoketherapeutics,biotech,true
+scholar-rock,Scholar Rock,lever,scholarrock,biotech,true
+korro-bio,Korro Bio,lever,korrobio,biotech,true
+tango-therapeutics,Tango Therapeutics,greenhouse,tangotherapeutics,biotech,true
+prime-medicine,Prime Medicine,greenhouse,primemedicine,biotech,true
+rapport-therapeutics,Rapport Therapeutics,greenhouse,rapporttherapeutics,biotech,true
+apogee-therapeutics,Apogee Therapeutics,greenhouse,apogeetherapeutics,biotech,false
+nuvalent,Nuvalent,greenhouse,nuvalent,biotech,true
+manifold-bio,Manifold Bio,greenhouse,manifoldbio,biotech,true
+valo-health,Valo Health,greenhouse,valohealth,biotech,true
+orbital-therapeutics,Orbital Therapeutics,ashby,orbital,biotech,true
+elevatebio,ElevateBio,greenhouse,elevatebio,biotech,true
+seres-therapeutics,Seres Therapeutics,greenhouse,seres,biotech,true
+xilio-therapeutics,Xilio Therapeutics,greenhouse,xiliotherapeutics,biotech,true
+entrada-therapeutics,Entrada Therapeutics,greenhouse,entradatherapeutics,biotech,true
+keros-therapeutics,Keros Therapeutics,greenhouse,keros,biotech,true
+praxis-precision-medicines,Praxis Precision Medicines,greenhouse,praxisprecisionmedicines,biotech,true
+formation-bio,Formation Bio,greenhouse,formationbio,biotech,true
+inceptive,Inceptive,greenhouse,inceptive,biotech,true
+neumora-therapeutics,Neumora Therapeutics,greenhouse,neumora,biotech,true
+candid-therapeutics,Candid Therapeutics,greenhouse,candid,biotech,true
+nabla-bio,Nabla Bio,ashby,nabla,biotech,true
+latent-labs,Latent Labs,ashby,latentlabs,biotech,true
+absci,Absci,ashby,absci,biotech,true
+genesis-therapeutics,Genesis Therapeutics,ashby,genesis,biotech,true
+noetik,Noetik,greenhouse,noetik,biotech,true
+altos-labs,Altos Labs,greenhouse,altoslabs,biotech,true
+freenome,Freenome,greenhouse,freenome,biotech,true
+grail,Grail,lever,grailbio,biotech,true
+caribou-biosciences,Caribou Biosciences,greenhouse,caribou,biotech,true
+scribe-therapeutics,Scribe Therapeutics,ashby,scribe,biotech,true
+septerna,Septerna,greenhouse,septerna,biotech,true
+resilience,Resilience,greenhouse,resilience,biotech,true
+element-biosciences,Element Biosciences,greenhouse,elementbiosciences,tools,true
+ultima-genomics,Ultima Genomics,greenhouse,ultimagenomics,tools,true
+seer,Seer,greenhouse,seer,tools,true
+cellares,Cellares,lever,cellares,tools,false
+latchbio,LatchBio,lever,latch,tools,true
+watershed-bio,Watershed Bio,greenhouse,watershed,tools,true
+dotmatics,Dotmatics,greenhouse,dotmatics,tools,true
+inizio,Inizio,greenhouse,inizio,consulting,true
+cello-health,Cello Health,ashby,cello,consulting,true
+precision-aq,Precision AQ,greenhouse,precisionaq,consulting,true
+charles-river-associates,Charles River Associates,greenhouse,charlesriverassociates,consulting,true
 polaris-partners,Polaris Partners,greenhouse,polaris,vc,true
-5am-ventures,5AM Ventures,lever,5amventures,vc,true
-andreessen-horowitz,Andreessen Horowitz,greenhouse,a16z,vc,true
-arc-institute,Arc Institute,greenhouse,arcinstitute,academic,true

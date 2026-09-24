@@ -12,7 +12,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   classifyJob,
-  enrichWorkdayJob,
+  enrichJob,
+  needsJobPage,
   extractDetails,
   extractTiming,
   postedAtFromText,
@@ -128,6 +129,11 @@ export interface JobDetailsUpdate {
   duration_text: string | null;
   deadline: string | null;
   posted_at: string | null;
+  /** Set only when the job's own page was read (careers sites: the real title replaces the guess). */
+  title: string | null;
+  role_family: string | null;
+  seniority: string | null;
+  dedupe_key: string | null;
   description_text: string | null;
   locations: string[] | null;
   country: string | null;
@@ -160,7 +166,11 @@ export interface JobsDb {
   markMissed(companyId: string, externalIds: string[]): Promise<void>;
   closeJobs(companyId: string, externalIds: string[], closedAt: string): Promise<void>;
   insertRun(row: RunRow): Promise<void>;
-  loadJobsNeedingDetails(limit: number, version: number): Promise<JobNeedingDetails[]>;
+  /**
+   * Open, showable jobs below `version`. Jobs from `pageCompanyIds` (careers sites, whose first title is
+   * only a guess from the link) are included while never read (details_version 0), whatever their guessed type.
+   */
+  loadJobsNeedingDetails(limit: number, version: number, pageCompanyIds?: string[]): Promise<JobNeedingDetails[]>;
   updateJobDetails(rows: JobDetailsUpdate[]): Promise<void>;
 }
 
@@ -198,9 +208,9 @@ export { key as jobKey };
 
 const MAX_DESCRIPTION = 20_000;
 
-/** Workday list entries have no description until we open the job's detail page. */
+/** Workday / careers-site list entries have no description until we open the job's own page. */
 function needsDetailFetch(j: NormalizedJob, ats: string | undefined): boolean {
-  return ats === "workday" && !j.descriptionText;
+  return ats !== undefined && needsJobPage(ats, j);
 }
 
 function detailColumns(j: NormalizedJob, seenAt: string) {
@@ -356,7 +366,11 @@ export async function backfillDetails(
   opts: BackfillOptions = {},
 ): Promise<{ updated: number; fetchedDetails: number; remaining: boolean }> {
   const limit = opts.limit ?? 300;
-  const rows = await db.loadJobsNeedingDetails(limit, DETAILS_VERSION);
+  const rows = await db.loadJobsNeedingDetails(
+    limit,
+    DETAILS_VERSION,
+    companies.filter((c) => c.ats === "careersite").map((c) => c.id),
+  );
   const byCompany = new Map(companies.map((c) => [c.id, c]));
   // This run's fetch has the structured hints (Lever salaryRange, Ashby compensation) the DB doesn't keep.
   const live = new Map<string, NormalizedJob>();
@@ -386,7 +400,7 @@ export async function backfillDetails(
         if (workdayBudget <= 0) return null; // next run
         workdayBudget--;
         try {
-          job = await enrichWorkdayJob(ctx, company, job);
+          job = await enrichJob(ctx, company, job);
           fetchedDetails++;
           gotDescription = Boolean(job.descriptionText);
         } catch {
@@ -398,6 +412,10 @@ export async function backfillDetails(
         id: r.id,
         ...detailColumns(job, r.first_seen_at),
         posted_at: job.postedAt ?? postedAtFromText(r.posted_text, new Date(r.first_seen_at)),
+        title: gotDescription ? job.title : null,
+        role_family: gotDescription ? c.roleFamily : null,
+        seniority: gotDescription ? c.seniority : null,
+        dedupe_key: gotDescription ? c.dedupeKey : null,
         description_text: gotDescription ? (job.descriptionText ?? "").slice(0, MAX_DESCRIPTION) : null,
         locations: gotDescription ? job.locations : null,
         country: job.country ?? null,
@@ -476,16 +494,34 @@ export function supabaseJobsDb(client: SupabaseClient): JobsDb {
     async insertRun(row) {
       check(await client.from("poll_runs").insert(row), "insert run");
     },
-    async loadJobsNeedingDetails(limit, version) {
+    async loadJobsNeedingDetails(limit, version, pageCompanyIds = []) {
+      const cols = "id, company_id, external_id, title, url, locations, remote, country, department, description_text, posted_at, posted_text, first_seen_at";
       const res = await client
         .from("jobs")
-        .select("id, company_id, external_id, title, url, locations, remote, country, department, description_text, posted_at, posted_text, first_seen_at")
+        .select(cols)
         .is("closed_at", null)
         .lt("details_version", version)
+        // Only roles the site can show (entry level, a known job family). Senior roles never need details.
+        .in("seniority", ["intern", "entry", "unspecified"])
+        .neq("role_family", "other")
         .order("first_seen_at", { ascending: false })
         .limit(limit);
       check(res, "load jobs needing details");
-      return (res.data ?? []) as JobNeedingDetails[];
+      const rows = (res.data ?? []) as JobNeedingDetails[];
+      if (pageCompanyIds.length && rows.length < limit) {
+        const more = await client
+          .from("jobs")
+          .select(cols)
+          .is("closed_at", null)
+          .eq("details_version", 0)
+          .in("company_id", pageCompanyIds)
+          .order("first_seen_at", { ascending: false })
+          .limit(limit - rows.length);
+        check(more, "load careers-site jobs needing details");
+        const have = new Set(rows.map((r) => r.id));
+        rows.push(...((more.data ?? []) as JobNeedingDetails[]).filter((r) => !have.has(r.id)));
+      }
+      return rows;
     },
     async updateJobDetails(rows) {
       if (rows.length) check(await client.rpc("update_job_details", { p_rows: rows }), "update job details");

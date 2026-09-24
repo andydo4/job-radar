@@ -1,4 +1,5 @@
-export type Ats = "greenhouse" | "lever" | "ashby" | "workday";
+/** "careersite": a company's own careers site read from its public job feed / sitemap (see adapters/careersite.ts). */
+export type Ats = "greenhouse" | "lever" | "ashby" | "workday" | "careersite";
 
 export type Segment =
   | "pharma"
@@ -19,6 +20,7 @@ export interface Company {
    * Board key for the ATS.
    * - greenhouse / lever / ashby: the board slug (e.g. "ginkgobioworks")
    * - workday: "tenant|wdN|site" (e.g. "pfizer|wd1|PfizerCareers")
+   * - careersite: the job feed URL (an RSS feed or a sitemap listing every job page)
    */
   atsKey: string;
   segment: Segment;

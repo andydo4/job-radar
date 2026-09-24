@@ -115,6 +115,9 @@ describe("live check", () => {
     expect(interpretLiveCheck("workday", "/x", 200, { jobPostingInfo: { title: "t" } })).toBe("open");
     expect(interpretLiveCheck("workday", "/x", 200, { jobPostingInfo: { canApply: false } })).toBe("closed");
     expect(interpretLiveCheck("workday", "/x", 200, { error: "x" })).toBe("unknown");
+    expect(interpretLiveCheck("careersite", "u", 404, null)).toBe("closed");
+    expect(interpretLiveCheck("careersite", "u", 200, null)).toBe("unknown");
+    expect(liveCheckUrl({ ats: "careersite", atsKey: "https://x/sitemap.xml", externalId: "u", url: "https://careers.abbvie.com/en/job/a-jid-1" })).toBe("https://careers.abbvie.com/en/job/a-jid-1");
   });
   it("never blocks on errors or timeouts", async () => {
     const boom = async () => {

@@ -5,6 +5,7 @@ import {
   enrichWorkdayJob,
   extractDetails,
   fetchWorkday,
+  findUsFacet,
   parseAshby,
   parseWorkdayDetail,
   parseGreenhouse,
@@ -103,14 +104,43 @@ describe("workday", () => {
     const res = await fetchWorkday({ fetch: fakeFetch(calls), userAgent: "test" }, co("workday", "pfizer|wd1|PfizerCareers", "pharma"), {
       pageDelayMs: 0,
     });
-    expect(calls).toHaveLength(2);
+    // 1 tiny probe (to find the US filter) + 2 pages
+    expect(calls).toHaveLength(3);
     expect(calls[0]!.url).toBe("https://pfizer.wd1.myworkdayjobs.com/wday/cxs/pfizer/PfizerCareers/jobs");
-    expect(calls.every((c) => c.body.limit === 20)).toBe(true);
+    expect(calls[0]!.body.limit).toBe(1);
+    expect(calls.slice(1).every((c) => c.body.limit === 20)).toBe(true);
     expect(res.jobs).toHaveLength(27);
     expect(res.complete).toBe(true);
-    expect(res.requests).toBe(2);
+    expect(res.requests).toBe(3);
     expect(res.jobs[0]!.url).toMatch(/^https:\/\/pfizer\.wd1\.myworkdayjobs\.com\/en-US\/PfizerCareers\/job\//);
     expect(res.jobs[0]!.postedText).toBe("Posted Today");
+  });
+
+  it("asks for US jobs only when the board has a country filter", async () => {
+    const calls: { url: string; body: any }[] = [];
+    const withFacets: FetchFn = async (url, init) => {
+      const body = JSON.parse(init?.body ?? "{}");
+      calls.push({ url, body });
+      const page = body.offset / 20;
+      const data = page === 0 ? fx("workday-page0.json") : page === 1 ? fx("workday-page1.json") : { total: 0, jobPostings: [] };
+      if (body.limit === 1) {
+        data.facets = [
+          { facetParameter: "jobFamilyGroup", values: [{ descriptor: "Research", id: "r1", count: 9 }] },
+          {
+            facetParameter: "locationMainGroup",
+            values: [
+              { facetParameter: "Location_Country", descriptor: "Country", values: [{ descriptor: "Germany", id: "de1" }, { descriptor: "United States of America", id: "bc33aa3152ec42d4995f4791a106ed09", count: 12 }] },
+            ],
+          },
+        ];
+      }
+      return { status: 200, json: async () => data };
+    };
+    await fetchWorkday({ fetch: withFacets, userAgent: "test" }, co("workday", "pfizer|wd1|PfizerCareers", "pharma"), { pageDelayMs: 0 });
+    expect(calls[1]!.body.appliedFacets).toEqual({ Location_Country: ["bc33aa3152ec42d4995f4791a106ed09"] });
+    expect(findUsFacet({ facets: [] })).toBeNull();
+    // A location list (not a country filter) with a "United States" entry is ignored.
+    expect(findUsFacet({ facets: [{ facetParameter: "locations", values: [{ descriptor: "United States", id: "x" }] }] })).toBeNull();
   });
 
   it("marks a page-limited sweep as NOT complete (so it can never close jobs)", async () => {
