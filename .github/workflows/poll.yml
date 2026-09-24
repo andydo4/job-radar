@@ -1,0 +1,62 @@
+name: Poll job boards
+
+on:
+  # Main trigger: cron-job.org calls the GitHub API every 10 minutes (see README).
+  workflow_dispatch:
+  # Backup only. GitHub's own scheduler often runs late and pauses after 60 days
+  # without commits, so it isn't the main clock.
+  schedule:
+    - cron: "*/30 * * * *"
+
+# Never let two polls overlap (a slow run + the next trigger would double-count).
+concurrency:
+  group: poller
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Phase 0 keeps "which jobs have we seen" in state/state.json, carried between
+      # runs with the Actions cache (no commits, nothing personal in the repo).
+      # Phase 1 moves this into Supabase.
+      - name: Restore seen-jobs state
+        uses: actions/cache/restore@v4
+        with:
+          path: state
+          key: poll-state-${{ github.run_id }}
+          restore-keys: poll-state-
+
+      - name: Poll
+        run: npm run poll
+        env:
+          WORKDAY_PARTIAL_PAGES: "3"
+          FULL_SWEEP_HOURS: "3"
+
+      - name: Save seen-jobs state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: state
+          key: poll-state-${{ github.run_id }}
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: report-${{ github.run_id }}
+          path: out/
+          retention-days: 7

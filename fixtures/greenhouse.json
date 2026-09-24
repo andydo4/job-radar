@@ -1,0 +1,42 @@
+{
+  "jobs": [
+    {
+      "id": 5238882007,
+      "title": "Associate Scientist, Protein Engineering",
+      "absolute_url": "https://job-boards.greenhouse.io/examplebio/jobs/5238882007",
+      "location": { "name": "Boston, Massachusetts" },
+      "first_published": "2026-09-15T13:59:39-04:00",
+      "updated_at": "2026-09-15T13:59:39-04:00",
+      "departments": [{ "name": "Research" }],
+      "content": "&lt;p&gt;We are hiring an Associate Scientist.&lt;/p&gt;&lt;ul&gt;&lt;li&gt;Bachelor&amp;#39;s or Master&amp;#39;s degree in Biology&lt;/li&gt;&lt;li&gt;Proficiency in MS Office&lt;/li&gt;&lt;/ul&gt;"
+    },
+    {
+      "id": 5238882008,
+      "title": "Senior Scientist, Analytical Development",
+      "absolute_url": "https://job-boards.greenhouse.io/examplebio/jobs/5238882008",
+      "location": { "name": "South San Francisco, CA" },
+      "first_published": "2026-09-10T09:00:00-04:00",
+      "updated_at": "2026-09-12T09:00:00-04:00",
+      "content": "&lt;p&gt;PhD in Chemistry required.&lt;/p&gt;"
+    },
+    {
+      "id": 5238882009,
+      "title": "QC Analyst I",
+      "absolute_url": "https://job-boards.greenhouse.io/examplebio/jobs/5238882009",
+      "location": { "name": "Cambridge, United Kingdom" },
+      "first_published": "2026-09-14T09:00:00-04:00",
+      "updated_at": "2026-09-14T09:00:00-04:00",
+      "content": ""
+    },
+    {
+      "id": 5238882010,
+      "title": "Bioinformatics Scientist",
+      "absolute_url": "https://job-boards.greenhouse.io/examplebio/jobs/5238882010",
+      "location": { "name": "Remote - US" },
+      "first_published": "2026-09-16T09:00:00-04:00",
+      "updated_at": "2026-09-16T09:00:00-04:00",
+      "content": "&lt;p&gt;PhD or MS in Computational Biology.&lt;/p&gt;"
+    }
+  ],
+  "meta": { "total": 4 }
+}

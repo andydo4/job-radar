@@ -1,0 +1,36 @@
+name: Workday test
+
+# Run this once by hand (Actions tab -> Workday test -> Run workflow) to check
+# whether Workday boards can be read from GitHub's servers. Results show up on
+# the run's Summary page.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "Optional: a single *.myworkdayjobs.com link to test instead of seed/companies.csv"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Test Workday boards
+        env:
+          WD_URL: ${{ inputs.url }}
+        run: |
+          if [ -n "$WD_URL" ]; then
+            npm run workday-test -- --url="$WD_URL"
+          else
+            npm run workday-test
+          fi

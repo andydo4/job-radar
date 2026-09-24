@@ -1,0 +1,15 @@
+id,name,ats,ats_key,segment,active
+# Verified boards (Greenhouse/Lever/Ashby checked live on 2026-09-23). Workday keys come from real job links.
+# Add more with `npm run discover -- --write`, or by hand. ats_key for Workday is tenant|wdN|site.
+ginkgo-bioworks,Ginkgo Bioworks,greenhouse,ginkgobioworks,biotech,true
+recursion,Recursion,greenhouse,recursionpharmaceuticals,biotech,true
+generate-biomedicines,Generate Biomedicines,greenhouse,generatebiomedicines,biotech,true
+twist-bioscience,Twist Bioscience,greenhouse,twistbioscience,tools,true
+clearview-healthcare-partners,ClearView Healthcare Partners,greenhouse,clearviewhealthcarepartners,consulting,true
+benchling,Benchling,ashby,benchling,tools,true
+adverum,Adverum Biotechnologies,lever,adverum,biotech,true
+retro-bio,Retro Biosciences,lever,retro,biotech,true
+e184,e184,lever,e184,biotech,true
+outpace-bio,Outpace Bio,lever,outpacebio,biotech,true
+pfizer,Pfizer,workday,pfizer|wd1|PfizerCareers,pharma,true
+gilead,Gilead Sciences,workday,gilead|wd1|gileadcareers,pharma,true
