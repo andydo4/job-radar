@@ -1,4 +1,4 @@
-# Job Radar Design System
+# Primer Design System
 
 A bold, technical look modeled on TypeUI's **Contemporan** style: **electric ultramarine** brand surfaces, **crisp white** bordered content, a **lime** highlight, **Playfair Display** serif headings, **Geist Mono** for the whole app UI, and exact **1px corners**. It's flat and precise.
 

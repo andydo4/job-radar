@@ -4,7 +4,7 @@ A free, private job radar. It checks company career sites (Greenhouse, Lever, As
 
 It reads each company's own ATS feed (the same data behind its careers page), so a job it shows is live on the company's site at that moment. There are no aggregators or stale mirror sites involved.
 
-> **Status: Phase 0 (proof).** Right now the poller writes a report on each GitHub Actions run. The website (Grad Programs page, then the job feed) comes in the next phases.
+> **Status:** Phase 0 poller is live (every 10 min). Phase 0.5 website ("Primer": Google sign-in + Grad Programs) is in `apps/web`. Setup: [`docs/setup-phase-0.5.md`](docs/setup-phase-0.5.md).
 
 ## How it works
 
