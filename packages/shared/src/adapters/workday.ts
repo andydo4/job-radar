@@ -21,14 +21,16 @@ export interface WorkdayKey {
   tenant: string;
   wd: string; // "wd1", "wd5", ...
   site: string;
+  /** Optional 4th part: a search phrase to read only matching jobs on huge boards ("new college grad" at Nvidia). */
+  search?: string;
 }
 
 export function parseWorkdayKey(atsKey: string): WorkdayKey {
-  const [tenant, wd, site] = atsKey.split("|");
+  const [tenant, wd, site, search] = atsKey.split("|");
   if (!tenant || !wd || !site) {
-    throw new Error(`Workday atsKey must be "tenant|wdN|site", got "${atsKey}"`);
+    throw new Error(`Workday atsKey must be "tenant|wdN|site" (optionally "|search words"), got "${atsKey}"`);
   }
-  return { tenant, wd, site };
+  return { tenant, wd, site, ...(search?.trim() ? { search: search.trim() } : {}) };
 }
 
 /** "https://pfizer.wd1.myworkdayjobs.com/en-US/PfizerCareers/job/..." -> "pfizer|wd1|PfizerCareers" */
@@ -144,7 +146,7 @@ export async function fetchWorkday(
   // (Big pharma boards are mostly non-US, so this cuts the pages to read a lot.)
   let appliedFacets: Record<string, string[]> = {};
   if (opts.usOnly !== false) {
-    const probe = await requestJson(ctx, url, { method: "POST", body: { appliedFacets: {}, limit: 1, offset: 0, searchText: "" } });
+    const probe = await requestJson(ctx, url, { method: "POST", body: { appliedFacets: {}, limit: 1, offset: 0, searchText: k.search ?? "" } });
     requests++;
     const us = findUsFacet(probe);
     if (us) appliedFacets = { [us.param]: [us.id] };
@@ -153,7 +155,7 @@ export async function fetchWorkday(
   for (let page = 0; page < maxPages; page++) {
     const data = await requestJson(ctx, url, {
       method: "POST",
-      body: { appliedFacets, limit: WORKDAY_PAGE_SIZE, offset: page * WORKDAY_PAGE_SIZE, searchText: "" },
+      body: { appliedFacets, limit: WORKDAY_PAGE_SIZE, offset: page * WORKDAY_PAGE_SIZE, searchText: k.search ?? "" },
     });
     requests++;
     const parsed = parseWorkdayPage(company, k, data);

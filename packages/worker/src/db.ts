@@ -280,7 +280,9 @@ function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, 
     remote: j.remote,
     country: j.country ?? null,
     department: j.department ?? null,
-    description_text: j.descriptionText ? j.descriptionText.slice(0, MAX_DESCRIPTION) : null,
+    // Keep descriptions only for roles the site can show (entry level, a known type). Senior roles and
+    // "other" jobs at big tech/pharma boards would otherwise fill the free database with text nobody reads.
+    description_text: j.descriptionText && isShowable(j) ? j.descriptionText.slice(0, MAX_DESCRIPTION) : null,
     posted_at: j.postedAt ?? postedAtFromText(j.postedText, new Date(firstSeenAt)),
     posted_text: j.postedText ?? null,
     role_family: j.roleFamily,
@@ -295,6 +297,11 @@ function toInsertRow(j: ClassifiedJob, isBacklog: boolean, firstSeenAt: string, 
     ...detailColumns(j, firstSeenAt),
     details_version: needsDetailFetch(j, ats) ? 0 : DETAILS_VERSION,
   };
+}
+
+/** Could this job ever appear on the site? (Mirrors the site's base filter: entry-level-ish and a known job type.) */
+export function isShowable(j: Pick<ClassifiedJob, "seniority" | "roleFamily">): boolean {
+  return (j.seniority === "intern" || j.seniority === "entry" || j.seniority === "unspecified") && j.roleFamily !== "other";
 }
 
 function companyRow(c: Company, cs: CompanyState | undefined, nowIso: string): CompanyRow {

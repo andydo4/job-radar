@@ -140,8 +140,8 @@ describe("Workday new jobs are checked on their detail page (US-only)", () => {
     const newPosting = (country: string) => (file: string, data: any) => {
       if (file === "workday-page0.json") {
         data.jobPostings.unshift({
-          title: "Representante de salud",
-          externalPath: "/job/Chihuahua/Representante-de-salud_5000001",
+          title: "Research Associate I",
+          externalPath: "/job/Chihuahua/Research-Associate-I_5000001",
           locationsText: "2 Locations",
           postedOn: "Posted Today",
         });

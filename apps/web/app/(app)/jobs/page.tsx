@@ -22,6 +22,7 @@ import {
   salaryLabel,
   timeAgo,
   timingLabel,
+  trackFamilies,
   workModelBadge,
   type JobFilters,
   type JobGroup,
@@ -472,7 +473,11 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
                   <Chip href={href(f, { family: undefined })} active={!f.family}>
                     All
                   </Chip>
-                  {FAMILIES.filter(([fam]) => f.view !== "foryou" || profile.families.includes(fam) || f.family?.includes(fam)).map(([fam, label]) => (
+                  {FAMILIES.filter(
+                    ([fam]) =>
+                      f.family?.includes(fam) ||
+                      (f.view === "foryou" ? profile.families.includes(fam) : trackFamilies(profile.families).includes(fam)),
+                  ).map(([fam, label]) => (
                     <Chip key={fam} href={href(f, { family: toggleFamily(f.family, fam) })} active={Boolean(f.family?.includes(fam))}>
                       {f.family?.includes(fam) ? "✓ " : ""}
                       {label}

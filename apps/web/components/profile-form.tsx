@@ -7,6 +7,7 @@ import { AFTER_GRAD_OPTIONS, DEGREE_OPTIONS, TIER_OPTIONS, type Profile, type Pr
 type Action = (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
 
 const FAMILY_HELP: [string, string, string][] = [
+  ["software", "Software (tech companies)", "SWE, new grad, forward deployed, product & design engineer"],
   ["research", "Research", "Research associate, scientist, lab roles"],
   ["process", "Process & manufacturing", "Process development, bioprocess, manufacturing"],
   ["quality", "Quality", "QC analyst, QA, validation"],

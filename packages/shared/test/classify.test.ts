@@ -135,3 +135,28 @@ describe("US-only default filter", () => {
     expect(hiddenReason({ ...base, isUS: true, metroTier: 1, seniority: "senior" }, DEFAULT_FILTER)).toBe("senior level");
   });
 });
+
+describe("software roles at tech companies (Phase 3)", () => {
+  it.each([
+    ["Software Engineer, New Grad", "software", "entry"],
+    ["Software Engineer, Early Career (AI)", "software", "entry"],
+    ["[2027] Software Engineer, Early Career", "software", "entry"],
+    ["Forward Deployed Engineer - New Grad", "software", "entry"],
+    ["Product Engineer", "software", "unspecified"],
+    ["Design Engineer", "software", "unspecified"],
+    ["Product Designer, University Grad", "software", "entry"],
+    ["Software Engineering AMTS, College Grad", "software", "entry"],
+    ["Senior Software Engineer, Backend", "software", "senior"],
+    ["Software Engineer II", "software", "mid"],
+    ["Account Executive, Enterprise", "other", "unspecified"],
+    ["Recruiting Coordinator", "other", "unspecified"],
+    ["Software Engineering Intern (Summer 2027)", "software", "intern"],
+  ])("%s", (title, family, level) => {
+    expect(classifyRoleFamily(title, "tech")).toBe(family);
+    expect(classifySeniority(title)).toBe(level);
+  });
+
+  it("biotech companies are unchanged", () => {
+    expect(classifyRoleFamily("Software Engineer, Lab Automation", "tools")).toBe("engineering");
+  });
+});

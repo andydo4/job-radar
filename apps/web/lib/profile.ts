@@ -12,6 +12,7 @@ export const FAMILY_IDS = [
   "commercial",
   "consulting",
   "vc",
+  "software",
 ] as const;
 
 export const DEGREE_OPTIONS = [

@@ -15,8 +15,22 @@ export const FAMILIES = [
   ["commercial", "Commercial"],
   ["consulting", "Consulting"],
   ["vc", "Venture"],
+  ["software", "Software"],
 ] as const;
 export type Family = (typeof FAMILIES)[number][0];
+
+/** Which side of Primer a profile is on: "tech" (Software only), "biotech" (no Software) or "both". */
+export function trackOf(families: string[]): "tech" | "biotech" | "both" {
+  const tech = families.includes("software");
+  const bio = families.some((f) => f !== "software");
+  return tech && bio ? "both" : tech ? "tech" : "biotech";
+}
+
+/** The job types that belong to your track(s), for the Types filter chips. */
+export function trackFamilies(families: string[]): Family[] {
+  const t = trackOf(families);
+  return FAMILIES.map(([f]) => f).filter((f) => (t === "both" ? true : t === "tech" ? f === "software" : f !== "software"));
+}
 export const FAMILY_LABEL = Object.fromEntries(FAMILIES) as Record<string, string>;
 
 export const TIER_LABEL: Record<number, string> = { 1: "Boston / NYC", 2: "Coasts / remote", 3: "Other US" };
@@ -141,6 +155,11 @@ function applyFilters<T extends Q>(q: T, opts: JobFilters, viewer: Viewer): T {
   const forYou = opts.view === "foryou";
 
   q = q.is("closed_at", null).eq("is_us", true).neq("role_family", "other");
+  // Tracks: tech (Software) vs biotech (everything else), from the job types in your profile.
+  // Someone who only picked Software never sees lab jobs, and vice versa, even under All jobs.
+  const track = trackOf(p.families);
+  if (track === "tech") q = q.eq("role_family", "software");
+  if (track === "biotech") q = q.neq("role_family", "software");
   q = q.in("seniority", forYou && !p.include_internships ? LEVELS.filter((l) => l !== "intern") : LEVELS);
 
   if (forYou) {

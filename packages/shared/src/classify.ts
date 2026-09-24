@@ -32,6 +32,13 @@ function consultingOrOther(title: string, department?: string): RoleFamily {
   return NON_LIFESCI_PRACTICE.test(text) && !LIFE_SCI.test(text) ? "other" : "consulting";
 }
 
+/**
+ * Software roles at tech companies (Phase 3): software / new-grad engineers, forward deployed,
+ * product and design engineers, UX / product designers.
+ */
+export const SOFTWARE_ROLE =
+  /\b(software (engineer|developer|development engineer)\w*|swe\b|sde\b|developer\b|engineer(ing)?,? (new grad|early career|university grad|college grad)|forward[- ]deployed|deployment (strategist|engineer)|solutions? engineer|product engineer|design engineer|ux engineer|ui engineer|creative technologist|product designer|ux designer|full[- ]?stack|front[- ]?end|back[- ]?end|mobile engineer|ios engineer|android engineer|web engineer|platform engineer|infrastructure engineer|systems engineer|reliability engineer|sre\b|data engineer|machine learning engineer|ml engineer|ai engineer|applied ai engineer|research engineer|member of (the )?technical staff|mts\b|production engineer|security engineer|quant(itative)? developer|engineer\s*(i|1)\b)/i;
+
 const FAMILY_RULES: [RoleFamily, RegExp][] = [
   ["compbio", /\b(bioinformatic\w*|computational (biolog\w*|chemist\w*|scien\w*)|machine learning scientist|data scien\w*|biostatistic\w*|statistical programmer|cheminformatic\w*)\b/i],
   ["regulatory", /\b(regulatory|pharmacovigilance|drug safety|medical writ\w*)\b/i],
@@ -45,6 +52,8 @@ const FAMILY_RULES: [RoleFamily, RegExp][] = [
 
 export function classifyRoleFamily(title: string, segment: Segment, department?: string): RoleFamily {
   if (SUPPORT.test(title)) return "other";
+  // Tech companies: only software-type roles count (everything else there is noise for both users).
+  if (segment === "tech") return SOFTWARE_ROLE.test(title) ? "software" : "other";
   // At consulting / VC firms, the business-facing roles *are* the job family.
   if (segment === "consulting") return consultingOrOther(title, department);
   if (segment === "vc") return "vc";
@@ -81,7 +90,7 @@ export function classifySeniority(title: string): Seniority {
   if (/(?<!phase\s)\b(II|III|IV|2|3|4)\b(?!\s*(?:shift|month|year|day))/i.test(t) || /\blevel (2|3|4)\b/i.test(t)) return "mid";
   if (
     /\b(I|1)\b(?!\s*\/)/.test(t) ||
-    /\b(entry[- ]level|new grad\w*|early career|graduate program|rotation(al)? (program|associate)|associate|analyst|junior|jr\.?|assistant|technician|trainee|apprentice|fellow|fellowship)\b/i.test(t)
+    /\b(entry[- ]level|new grad\w*|new college grad\w*|university grad\w*|college grad\w*|early career|campus|graduate program|rotation(al)? (program|associate)|associate|analyst|junior|jr\.?|assistant|technician|trainee|apprentice|fellow|fellowship)\b/i.test(t)
   ) {
     return "entry";
   }

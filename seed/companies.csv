@@ -107,3 +107,88 @@ genentech,Genentech,workday,roche|wd3|ROG-A2O-GENE,pharma,true
 abbvie,AbbVie,careersite,https://careers.abbvie.com/en/vacanciessitemap.xml,pharma,true
 bayer,Bayer,careersite,https://jobs.bayer.com/sitemap.xml,pharma,true
 boehringer-ingelheim,Boehringer Ingelheim,careersite,https://jobs.boehringer-ingelheim.com/sitemap.xml,pharma,true
+# Phase 3 (2026-09-24): tech companies for Andy's software track. Boards verified live in the browser.
+# Tech-company jobs only count when they're software-type roles (classify.ts SOFTWARE_ROLE); everything else is 'other'.
+stripe,Stripe,greenhouse,stripe,tech,true
+figma,Figma,greenhouse,figma,tech,true
+pinterest,Pinterest,greenhouse,pinterest,tech,true
+airbnb,Airbnb,greenhouse,airbnb,tech,true
+databricks,Databricks,greenhouse,databricks,tech,true
+anthropic,Anthropic,greenhouse,anthropic,tech,true
+coinbase,Coinbase,greenhouse,coinbase,tech,true
+robinhood,Robinhood,greenhouse,robinhood,tech,true
+datadog,Datadog,greenhouse,datadog,tech,true
+scale-ai,Scale AI,greenhouse,scaleai,tech,true
+airtable,Airtable,greenhouse,airtable,tech,true
+brex,Brex,greenhouse,brex,tech,true
+cloudflare,Cloudflare,greenhouse,cloudflare,tech,true
+mongodb,MongoDB,greenhouse,mongodb,tech,true
+duolingo,Duolingo,greenhouse,duolingo,tech,true
+roblox,Roblox,greenhouse,roblox,tech,true
+reddit,Reddit,greenhouse,reddit,tech,true
+discord,Discord,greenhouse,discord,tech,true
+affirm,Affirm,greenhouse,affirm,tech,true
+block,Block,greenhouse,block,tech,true
+doordash,DoorDash,greenhouse,doordashusa,tech,true
+vercel,Vercel,greenhouse,vercel,tech,true
+samsara,Samsara,greenhouse,samsara,tech,true
+asana,Asana,greenhouse,asana,tech,true
+dropbox,Dropbox,greenhouse,dropbox,tech,true
+lyft,Lyft,greenhouse,lyft,tech,true
+instacart,Instacart,greenhouse,instacart,tech,true
+gusto,Gusto,greenhouse,gusto,tech,true
+flexport,Flexport,greenhouse,flexport,tech,true
+chime,Chime,greenhouse,chime,tech,true
+nuro,Nuro,greenhouse,nuro,tech,true
+twilio,Twilio,greenhouse,twilio,tech,true
+okta,Okta,greenhouse,okta,tech,true
+glean,Glean,greenhouse,gleanwork,tech,true
+verkada,Verkada,greenhouse,verkada,tech,true
+applovin,AppLovin,greenhouse,applovin,tech,true
+epic-games,Epic Games,greenhouse,epicgames,tech,true
+riot-games,Riot Games,greenhouse,riotgames,tech,true
+faire,Faire,greenhouse,faire,tech,true
+elastic,Elastic,greenhouse,elastic,tech,true
+gitlab,GitLab,greenhouse,gitlab,tech,true
+webflow,Webflow,greenhouse,webflow,tech,true
+mercury,Mercury,greenhouse,mercury,tech,true
+cockroach-labs,Cockroach Labs,greenhouse,cockroachlabs,tech,true
+jane-street,Jane Street,greenhouse,janestreet,tech,true
+imc-trading,IMC Trading,greenhouse,imc,tech,true
+jump-trading,Jump Trading,greenhouse,jumptrading,tech,true
+akuna-capital,Akuna Capital,greenhouse,akunacapital,tech,true
+sofi,SoFi,greenhouse,sofi,tech,true
+zscaler,Zscaler,greenhouse,zscaler,tech,true
+notion,Notion,ashby,notion,tech,true
+openai,OpenAI,ashby,openai,tech,true
+ramp,Ramp,ashby,ramp,tech,true
+linear,Linear,ashby,linear,tech,true
+perplexity,Perplexity,ashby,perplexity,tech,true
+snowflake,Snowflake,ashby,snowflake,tech,true
+plaid,Plaid,ashby,plaid,tech,true
+cursor,Cursor,ashby,cursor,tech,true
+decagon,Decagon,ashby,decagon,tech,true
+sierra,Sierra,ashby,sierra,tech,true
+cohere,Cohere,ashby,cohere,tech,true
+replit,Replit,ashby,replit,tech,true
+sentry,Sentry,ashby,sentry,tech,true
+persona,Persona,ashby,persona,tech,true
+clickhouse,ClickHouse,ashby,clickhouse,tech,true
+cognition,Cognition,ashby,cognition,tech,true
+harvey,Harvey,ashby,harvey,tech,true
+elevenlabs,ElevenLabs,ashby,elevenlabs,tech,true
+baseten,Baseten,ashby,baseten,tech,true
+modal,Modal,ashby,modal,tech,true
+supabase,Supabase,ashby,supabase,tech,true
+temporal,Temporal,ashby,temporal,tech,true
+vanta,Vanta,ashby,vanta,tech,true
+posthog,PostHog,ashby,posthog,tech,true
+writer,Writer,ashby,writer,tech,true
+suno,Suno,ashby,suno,tech,true
+palantir,Palantir,lever,palantir,tech,true
+spotify,Spotify,lever,spotify,tech,true
+shield-ai,Shield AI,lever,shieldai,tech,true
+zoox,Zoox,lever,zoox,tech,true
+wealthfront,Wealthfront,lever,wealthfront,tech,true
+salesforce,Salesforce,workday,salesforce|wd12|futureforce_newgradroles,tech,true
+nvidia,Nvidia,workday,nvidia|wd5|NVIDIAExternalCareerSite|new college grad,tech,true

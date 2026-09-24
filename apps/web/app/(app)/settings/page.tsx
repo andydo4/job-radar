@@ -3,7 +3,7 @@ import { ProfileForm } from "@/components/profile-form";
 import { InstallCard } from "@/components/install-card";
 import { PageHeader } from "@/components/ui";
 import { getCompanyPrefs, getProfile } from "@/lib/me";
-import { getCompanies } from "@/lib/jobs";
+import { getCompanies, trackOf } from "@/lib/jobs";
 import { CompanyList } from "./company-list";
 import { requireUser } from "@/lib/supabase/server";
 import { saveProfile } from "./actions";
@@ -31,7 +31,13 @@ export default async function SettingsPage() {
             <strong className="text-heading">Hide</strong> the ones you never want to see. Only you see these choices.
           </p>
         </div>
-        <CompanyList companies={companies} prefs={Object.fromEntries(prefs)} />
+        <CompanyList
+          companies={companies.filter((c) => {
+            const t = trackOf(profile.families);
+            return t === "both" || (t === "tech") === (c.segment === "tech");
+          })}
+          prefs={Object.fromEntries(prefs)}
+        />
       </section>
       <InstallCard />
     </div>

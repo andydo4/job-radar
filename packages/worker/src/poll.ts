@@ -28,7 +28,7 @@ import { ROOT, isMain } from "./paths.ts";
 import { FIXTURE_COMPANIES, fixturesFetch, simulateNewPostings } from "./fixtures-fetch.ts";
 import { renderMarkdown, type CompanyRunResult, type RunSummary } from "./report.ts";
 import { applyFetch, loadState, needsFullSweep, recordFailure, saveState, type State } from "./store.ts";
-import { applyPlan, backfillDetails, dbFromEnv, planPersist, stateFromDb } from "./db.ts";
+import { applyPlan, backfillDetails, dbFromEnv, isShowable, planPersist, stateFromDb } from "./db.ts";
 
 
 export interface PollOptions {
@@ -106,7 +106,11 @@ export async function runPoll(opts: PollOptions): Promise<RunSummary> {
       // For NEW jobs only, read the job's own page for the country (US-only filter), locations and description.
       let fresh = applied.newJobs;
       let detailRequests = 0;
-      const needPage = fresh.filter((j) => needsJobPage(company.ats, j));
+      // Only open pages for jobs the site could show (skip senior / off-topic roles on huge boards).
+      // (Careers-site titles are only a guess from the link, so those pages are always opened.)
+      const needPage = fresh.filter(
+        (j) => needsJobPage(company.ats, j) && (company.ats === "careersite" || isShowable(classifyJob(j, company))),
+      );
       if (needPage.length) {
         const max = opts.maxWorkdayDetails ?? 25;
         const enriched = new Map(

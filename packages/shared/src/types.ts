@@ -73,6 +73,7 @@ export type RoleFamily =
   | "commercial"
   | "consulting"
   | "vc"
+  | "software" // tech companies: SWE, forward deployed, product / design engineer (Phase 3)
   | "other";
 
 export type Seniority = "intern" | "entry" | "mid" | "senior" | "unspecified";
