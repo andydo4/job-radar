@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompanyPref, JobStatus } from "./me";
 import { allowedDegrees, maxExperience, qualify, type Profile } from "./profile";
+import { postedTime } from "./sort";
 
 export const FAMILIES = [
   ["research", "Research"],
@@ -196,9 +197,12 @@ export async function getJobs(
     if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
     rows = (data ?? []) as unknown as typeof rows;
   } else {
+    // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
     let q = applyFilters(supabase.from("jobs").select(COLUMNS), opts, viewer)
+      .order("is_backlog", { ascending: true })
+      .order("posted_at", { ascending: false, nullsFirst: false })
       .order("first_seen_at", { ascending: false })
-      .limit(800);
+      .limit(1500);
     if (opts.company) q = q.eq("company_id", opts.company);
     const { data, error } = await q;
     if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
@@ -248,9 +252,13 @@ export async function getJobs(
   }
 
   // Newest first; within the same hour, Boston/NYC before the rest.
+  // Newest = posted most recently: the company's posted date when it gives one, else when Primer found it.
+  // Jobs that were already up when a company was added (backlog) and have no posted date go last,
+  // so a new company's old postings never jump ahead of genuinely new ones.
+  // Within the same hour, Boston/NYC first.
   const newest = (a: JobGroup, b: JobGroup) => {
-    const ha = Math.floor(new Date(a.lead.first_seen_at).getTime() / 3_600_000);
-    const hb = Math.floor(new Date(b.lead.first_seen_at).getTime() / 3_600_000);
+    const ha = Math.floor(postedTime(a) / 3_600_000);
+    const hb = Math.floor(postedTime(b) / 3_600_000);
     if (ha !== hb) return hb - ha;
     return (a.lead.metro_tier ?? 9) - (b.lead.metro_tier ?? 9);
   };

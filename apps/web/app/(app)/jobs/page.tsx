@@ -419,7 +419,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
             sort={
               <SortSelect
                 options={[
-                  { label: "Newest", href: href(f, { sort: undefined }), active: !f.sort },
+                  { label: "Newest posted", href: href(f, { sort: undefined }), active: !f.sort },
                   { label: "Deadline soonest", href: href(f, { sort: "deadline" }), active: f.sort === "deadline" },
                   { label: "Highest pay", href: href(f, { sort: "pay" }), active: f.sort === "pay" },
                   { label: "Company A–Z", href: href(f, { sort: "company" }), active: f.sort === "company" },
