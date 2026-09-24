@@ -28,6 +28,8 @@ Code: this repo (public, github.com/andydo4/job-radar). Live site: Vercel projec
 - Poller: Workday US-only via the board's country facet; ≤3 big-board full reads per run; careers-site feeds hourly; backfill 120 job pages/run for showable roles; DETAILS_VERSION 4 (re-processes open jobs for at-a-glance fields).
 - **Company pages** (`/companies/[id]`): built 2026-09-24. Header with name, segment, open-role count, Star/Hide buttons, Careers site link. 4-metric StatCard grid (open roles, internships, full-time, new recently), role kind filter chips (All, Internships, Full-time), sort options (Newest, Deadline, Pay), and all open jobs grouped by role family with glance badges.
 - **At-a-glance parsing**: built 2026-09-24 (`packages/shared/src/glance.ts`, 55 tests). Pure pattern extraction for: work model (remote/hybrid days/on-site), visa sponsorship, travel, security clearance, internship housing, and application extras (cover letter, transcript, references, coding test, case study). Surfaced on card badge row (work model, no-visa alert), card Details dropdown ("At a glance" badges), and job detail page 4-column fact grid.
+- **Job detail page**: long location lists (>6) collapse behind a native `Show all N locations` disclosure box with scrollable badges so huge multi-city roles don't push down the description.
+- **Company dropdown**: queries all active companies Primer watches (~100), grouped into "Companies with matching roles" (with counts) and "Other watched companies (0 roles)" so all tracked companies are visible and selectable.
 
 ## To do
 - **DB action**: run `supabase/migrations/0007_glance.sql` in Supabase SQL editor.

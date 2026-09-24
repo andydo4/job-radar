@@ -210,7 +210,32 @@ export default async function JobPage(props: PageProps<"/jobs/[id]">) {
         <h2 className="font-mono text-xs font-medium tracking-[0.04em] text-subtle uppercase">
           {locations.length > 1 ? `Locations (${locations.length})` : "Location"}
         </h2>
-        <p className="font-mono text-sm leading-6 text-body">{locations.length ? locations.join(" · ") : "Not listed"}</p>
+        {locations.length === 0 ? (
+          <p className="font-mono text-sm leading-6 text-subtle">Not listed</p>
+        ) : locations.length <= 6 ? (
+          <p className="font-mono text-sm leading-6 text-body">{locations.join(" · ")}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            <p className="font-mono text-sm leading-6 text-body">
+              {locations.slice(0, 5).join(" · ")}
+              <span className="text-subtle"> · and {locations.length - 5} more</span>
+            </p>
+            <details className="group">
+              <summary className="cursor-pointer font-mono text-xs font-medium text-link hover:underline">
+                Show all {locations.length} locations
+              </summary>
+              <div className="mt-2.5 max-h-48 overflow-y-auto border border-line bg-card p-3">
+                <div className="flex flex-wrap gap-1.5">
+                  {locations.map((loc, i) => (
+                    <span key={i} className="border border-line bg-surface px-2 py-0.5 font-mono text-xs text-body">
+                      {loc}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </details>
+          </div>
+        )}
       </section>
 
       {reqs.length > 0 && (

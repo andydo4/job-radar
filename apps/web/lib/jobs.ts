@@ -448,23 +448,45 @@ export function applicationExtrasLabels(extras: string[] | null | undefined): st
   return extras.map((e) => EXTRA_LABELS[e] ?? e);
 }
 
-/** Companies with at least one job under the current filters, for the Company dropdown. */
+/** All companies Primer watches, with role counts under the current filters for the Company dropdown. */
 export async function getCompanyCounts(
   supabase: SupabaseClient,
   opts: JobFilters,
   viewer: Viewer,
 ): Promise<{ id: string; name: string; count: number }[]> {
-  if (isMarkView(opts.view)) return [];
-  const { data } = await applyFilters(supabase.from("jobs").select("company_id, dedupe_key, company:companies(name)"), { ...opts, company: undefined }, viewer).limit(5000);
-  const byId = new Map<string, { id: string; name: string; roles: Set<string> }>();
-  for (const r of (data ?? []) as unknown as { company_id: string; dedupe_key: string; company: { name: string } | null }[]) {
-    const e = byId.get(r.company_id) ?? { id: r.company_id, name: r.company?.name ?? r.company_id, roles: new Set<string>() };
-    e.roles.add(r.dedupe_key);
-    byId.set(r.company_id, e);
+  const [{ data: cos }, { data: matching }] = await Promise.all([
+    supabase.from("companies").select("id, name").eq("active", true).order("name"),
+    isMarkView(opts.view)
+      ? (() => {
+          const ids = [...viewer.actions].filter(([, st]) => st === opts.view).map(([id]) => id);
+          if (!ids.length) return Promise.resolve({ data: [] });
+          let q = supabase.from("jobs").select("company_id, dedupe_key").in("id", ids.slice(0, 1000));
+          if (opts.family?.length) q = q.in("role_family", opts.family);
+          return q;
+        })()
+      : applyFilters(supabase.from("jobs").select("company_id, dedupe_key"), { ...opts, company: undefined }, viewer).limit(10000),
+  ]);
+
+  const rolesPerCo = new Map<string, Set<string>>();
+  for (const r of (matching ?? []) as { company_id: string; dedupe_key: string }[]) {
+    const s = rolesPerCo.get(r.company_id) ?? new Set<string>();
+    s.add(r.dedupe_key);
+    rolesPerCo.set(r.company_id, s);
   }
-  return [...byId.values()]
-    .map((e) => ({ id: e.id, name: e.name, count: e.roles.size }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const list = ((cos ?? []) as { id: string; name: string }[]).map((c) => ({
+    id: c.id,
+    name: c.name,
+    count: rolesPerCo.get(c.id)?.size ?? 0,
+  }));
+
+  // Companies with matching jobs first (alphabetical), then 0-matching companies (alphabetical)
+  return list.sort((a, b) => {
+    const hasA = a.count > 0 ? 1 : 0;
+    const hasB = b.count > 0 ? 1 : 0;
+    if (hasA !== hasB) return hasB - hasA;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 export async function getDescription(supabase: SupabaseClient, id: number): Promise<string | null> {
