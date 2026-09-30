@@ -263,7 +263,7 @@ export function clearJobsCache() {
   FULL_JOB_CACHE.clear();
 }
 
-function getCacheKey(opts: JobFilters, viewer: Viewer, limit: number): string {
+function getCacheKey(opts: JobFilters, viewer: Viewer): string {
   const p = viewer.profile;
   const hidden = idsWith(viewer.companyPrefs, "hide").sort().join(",");
   const starred = idsWith(viewer.companyPrefs, "star").sort().join(",");
@@ -278,7 +278,6 @@ function getCacheKey(opts: JobFilters, viewer: Viewer, limit: number): string {
     fit: opts.fit,
     e: opts.exp,
     d: opts.degree,
-    lim: limit,
     fam: p.families.slice().sort(),
     tiers: p.metro_tiers.slice().sort(),
     deg: p.degree,
@@ -300,7 +299,7 @@ async function loadRows(
   limit: number,
   perf?: Partial<PerfStats>,
 ): Promise<Row[]> {
-  const cacheKey = getCacheKey(opts, viewer, limit);
+  const cacheKey = getCacheKey(opts, viewer);
   const now = Date.now();
   const cached = ROWS_CACHE.get(cacheKey);
   if (cached && cached.expiresAt > now) {
@@ -355,12 +354,19 @@ async function loadRows(
     if (opts.company) q = q.eq("company_id", opts.company);
     return q;
   };
-  const first = await page(0);
-  if (first.error) throw new Error(`Couldn't load jobs: ${first.error.message}`);
-  const rows = [...((first.data ?? []) as unknown as JobRow[])];
-  
-  if (rows.length === PAGE && limit > PAGE) {
-    let from = PAGE;
+
+  // Fetch first two pages (up to 2,000 rows) concurrently to avoid sequential network round-trips
+  const [firstRes, secondRes] = await Promise.all([page(0), page(PAGE)]);
+  if (firstRes.error) throw new Error(`Couldn't load jobs: ${firstRes.error.message}`);
+  if (secondRes.error) throw new Error(`Couldn't load jobs: ${secondRes.error.message}`);
+
+  const rows = [
+    ...((firstRes.data ?? []) as unknown as JobRow[]),
+    ...((secondRes.data ?? []) as unknown as JobRow[]),
+  ];
+
+  if ((secondRes.data?.length ?? 0) === PAGE && limit > 2000) {
+    let from = 2000;
     while (rows.length < limit) {
       const next = await page(from);
       if (next.error) throw new Error(`Couldn't load jobs: ${next.error.message}`);
@@ -390,11 +396,8 @@ async function loadRows(
 /** Cards per "Load more". */
 export const PAGE_SIZE = 50;
 
-/** How many rows a list looks at (2000 rows covers first pages quickly). */
-const LIST_ROW_LIMIT = 2000;
-
-/** How many rows the map looks at to color all states (3000 rows covers all active US roles). */
-const MAP_ROW_LIMIT = 3000;
+/** Maximum rows loaded to cover all active roles (currently ~1,400 total rows in DB). */
+const MAX_ROW_LIMIT = 3000;
 
 /**
  * The job list. Every matching role is grouped, filtered and sorted from light rows; only the
@@ -408,13 +411,12 @@ export async function getJobs(
   show = Infinity,
 ): Promise<{ groups: JobGroup[]; all: JobGroup[]; hiddenCount: number; truncated: boolean; perf: PerfStats }> {
   const perf: PerfStats = { loadRowsMs: 0, rowCount: 0, requestCount: 0, hydrateMs: 0, hydratedCount: 0, groupCount: 0 };
-  const limit = Math.min(MAP_ROW_LIMIT, Math.max(LIST_ROW_LIMIT, (show === Infinity ? 50 : show) * 10));
-  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, limit, perf);
+  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, MAX_ROW_LIMIT, perf);
   let all = groupRows(light, opts, viewer);
   if (opts.state) all = all.filter((g) => inPlace(g, opts.state!, opts.city));
   perf.groupCount = all.length;
   const groups = await hydrate(supabase, all.slice(0, show), perf);
-  return { groups, all, hiddenCount: countHidden(viewer), truncated: light.length >= limit, perf };
+  return { groups, all, hiddenCount: countHidden(viewer), truncated: light.length >= MAX_ROW_LIMIT, perf };
 }
 
 /** Just what grouping, For you, Fit, sorting, counts and the map need (no requirements etc.).
@@ -466,12 +468,12 @@ export async function getMapJobs(
   show = Infinity,
 ): Promise<{ counts: StateCount[]; all: JobGroup[]; picked: JobGroup[]; selected: JobGroup[]; hiddenCount: number; truncated: boolean; perf: PerfStats }> {
   const perf: PerfStats = { loadRowsMs: 0, rowCount: 0, requestCount: 0, hydrateMs: 0, hydratedCount: 0, groupCount: 0 };
-  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, MAP_ROW_LIMIT, perf);
+  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, MAX_ROW_LIMIT, perf);
   const all = groupRows(light, opts, viewer);
   perf.groupCount = all.length;
   const picked = opts.state ? all.filter((g) => inPlace(g, opts.state!, opts.city)) : [];
   const selected = await hydrate(supabase, picked.slice(0, show), perf);
-  return { counts: stateCounts(all), all, picked, selected, hiddenCount: countHidden(viewer), truncated: light.length >= MAP_ROW_LIMIT, perf };
+  return { counts: stateCounts(all), all, picked, selected, hiddenCount: countHidden(viewer), truncated: light.length >= MAX_ROW_LIMIT, perf };
 }
 
 /** Rows -> roles (one per dedupe key), minus hidden / ineligible / off-fit ones, sorted. */
