@@ -21,7 +21,7 @@ Code: this repo (public, github.com/andydo4/job-radar). Live site: Vercel projec
 - "Newest posted" sorts by the company's posted date (else when found); backlog jobs without a date go last (apps/web/lib/sort.ts).
 
 ## Status (2026-09-30)
-- Migrations 0001–0009 (0007 glance columns, 0008 map states/places, 0009 big-tech board types). All should be run in Supabase; if the big-tech companies never appear, 0009 wasn't run. The next one is 0010.
+- Migrations 0001–0009 all run in Supabase (0007 glance columns, 0008 map states/places, 0009 big-tech board types). The next one is 0010.
 - Everything through "Add Amazon, Google, Apple, Microsoft, Netflix + 70 companies" is pushed and live.
 - **Mobile / UI (2026-09-24)**: one-row desktop header; avatar menu (theme, Settings, Sign out, checker status; red dot when stalled) on all sizes; phones get a Filters bottom sheet (no sideways scrolling) and a 5-column tab row; Jobs shows 50 roles + "Load more" (`?show=`, not remembered); long words wrap on cards; cards use container queries (`@2xl:`) so they fit the map's side panel; Settings has an unsaved-changes bar and asks before leaving; cards show the newest listing's "posted" date (Palantir re-posts old roles in new cities).
 - **Software everywhere**: software-type titles at biotech/pharma are role_family "software" (`CLEAR_SOFTWARE` in classify.ts), so unticking Software in Settings removes them everywhere.

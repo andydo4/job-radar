@@ -510,20 +510,42 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   }
   const f = parseFilters(sp);
 
+  const tPageStart = performance.now();
+  const tUser0 = performance.now();
   const { supabase, user } = await requireUser();
+  const userMs = Math.round(performance.now() - tUser0);
+
+  const tViewer0 = performance.now();
   const [profile, actions, newSince, companyPrefs] = await Promise.all([
     getProfile(supabase, user.id),
     getJobActions(supabase),
     noteVisit(supabase),
     getCompanyPrefs(supabase),
   ]);
-  const viewer = { profile, actions, newSince, companyPrefs };
+  const viewerMs = Math.round(performance.now() - tViewer0);
+
+  const companyCountsPerf: { durationMs?: number } = {};
+  const tJobs0 = performance.now();
   const [jobs, lastRun, companyCount, companies] = await Promise.all([
     f.map ? getMapJobs(supabase, f, viewer, f.show ?? PAGE_SIZE) : getJobs(supabase, f, viewer, f.show ?? PAGE_SIZE),
     getLastRun(supabase),
     getCompanyCount(supabase),
-    getCompanyCounts(supabase, f, viewer),
+    getCompanyCounts(supabase, f, viewer, companyCountsPerf),
   ]);
+  const jobsMs = Math.round(performance.now() - tJobs0);
+  const totalMs = Math.round(performance.now() - tPageStart);
+
+  console.log(`\n================== [PERF BENCHMARK: ${f.map ? "MAP" : "LIST"}] ==================`);
+  console.log(`⏱ Total Server Latency:    ${totalMs}ms`);
+  console.log(`├─ requireUser (Auth):      ${userMs}ms`);
+  console.log(`├─ Profile / Actions / RPC: ${viewerMs}ms`);
+  console.log(`├─ Jobs & Secondary Data:   ${jobsMs}ms`);
+  console.log(`│  ├─ loadRows from DB:     ${jobs.perf.loadRowsMs}ms (${jobs.perf.rowCount} rows, ${jobs.perf.requestCount} HTTP reqs)`);
+  console.log(`│  ├─ dedupe & group in JS: ${jobs.perf.groupCount} unique roles`);
+  console.log(`│  ├─ hydrate (full cards): ${jobs.perf.hydrateMs}ms (${jobs.perf.hydratedCount} cards)`);
+  console.log(`│  └─ getCompanyCounts:     ${companyCountsPerf.durationMs ?? 0}ms (extra jobs scan)`);
+  console.log(`==================================================================\n`);
+
   const mapData = "counts" in jobs ? jobs : null;
   // The cards shown: the list, or on the map the roles in the picked state.
   const listData = mapData ? null : (jobs as Awaited<ReturnType<typeof getJobs>>);
@@ -598,6 +620,23 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
           Profile saved. For you now uses it.
         </p>
       )}
+
+      {/* Benchmark stats banner */}
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 border border-brand/20 bg-card px-3.5 py-2 font-mono text-[11px] text-subtle">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-block size-2 bg-brand" aria-hidden />
+          <span className="font-semibold text-heading">Server Benchmark:</span>
+          <span className="font-semibold text-link">{totalMs}ms total</span>
+          <span>(DB: {jobs.perf.loadRowsMs}ms · {jobs.perf.rowCount} rows in {jobs.perf.requestCount} reqs)</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <span>Auth: {userMs}ms</span>
+          <span>Profile/RPC: {viewerMs}ms</span>
+          <span>Hydrate: {jobs.perf.hydrateMs}ms</span>
+          <span>Company scan: {companyCountsPerf.durationMs ?? 0}ms</span>
+        </div>
+      </div>
+
       <PageHeader
         eyebrow="Jobs"
         title={VIEW_TITLE[f.view]}
