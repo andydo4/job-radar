@@ -20,12 +20,14 @@ Code: this repo (public, github.com/andydo4/job-radar). Live site: Vercel projec
 - Companies on their own careers sites are read from the public feed they publish for search engines (RSS or sitemap + schema.org JobPosting on each job page), never by scraping search pages.
 - "Newest posted" sorts by the company's posted date (else when found); backlog jobs without a date go last (apps/web/lib/sort.ts).
 
-## Status (2026-09-24)
-- Migrations 0001–0006 all run in Supabase (0006 includes careersite, audience columns, profiles.after_grad).
-- Migration 0007 (`supabase/migrations/0007_glance.sql`) created: adds work_model, work_model_detail, visa_sponsorship, travel, clearance_required, housing, application_extras; updates `update_job_details`. (Run in Supabase before pushing worker).
+## Status (2026-09-30)
+- Migrations 0001–0009 (0007 glance columns, 0008 map states/places, 0009 big-tech board types). All should be run in Supabase; if the big-tech companies never appear, 0009 wasn't run. The next one is 0010.
+- Everything through "Add Amazon, Google, Apple, Microsoft, Netflix + 70 companies" is pushed and live.
+- **Mobile / UI (2026-09-24)**: one-row desktop header; avatar menu (theme, Settings, Sign out, checker status; red dot when stalled) on all sizes; phones get a Filters bottom sheet (no sideways scrolling) and a 5-column tab row; Jobs shows 50 roles + "Load more" (`?show=`, not remembered); long words wrap on cards; cards use container queries (`@2xl:`) so they fit the map's side panel; Settings has an unsaved-changes bar and asks before leaving; cards show the newest listing's "posted" date (Palantir re-posts old roles in new cities).
+- **Software everywhere**: software-type titles at biotech/pharma are role_family "software" (`CLEAR_SOFTWARE` in classify.ts), so unticking Software in Settings removes them everywhere.
 - Website: For you / All / Saved / Applied / Hidden; qualify + timeline tags; new since last visit; Save/Applied/Hide; `/go/[id]` apply-time check; PWA; filter bar (quick toggles, Filters panel, multi-select types, pills); filters remembered per device; star/hide companies; company name links to its listings.
 - Companies: ~100 in seed/companies.csv incl. 25+ Workday big pharma/tools/CROs and 3 careersite boards (AbbVie, Bayer, Boehringer).
-- Poller: Workday US-only via the board's country facet; ≤3 big-board full reads per run; careers-site feeds hourly; backfill 120 job pages/run for showable roles; DETAILS_VERSION 6 (4: at-a-glance fields; 5: states/places for the map + the non-US "…, DE" fix; 6: "Indianapolis IN" locations). Backfill: 1,000 jobs/run.
+- Poller: Workday US-only via the board's country facet; ≤3 big-board full reads per run; careers-site feeds hourly; backfill 120 job pages/run for showable roles; DETAILS_VERSION 7 (4: at-a-glance fields; 5: states/places for the map + the non-US "…, DE" fix; 6: "Indianapolis IN" locations; 7: software jobs at biotech -> Software). Backfill: 1,000 jobs/run.
 - **Company pages** (`/companies/[id]`): built 2026-09-24. Header with name, segment, open-role count, Star/Hide buttons, Careers site link. 4-metric StatCard grid (open roles, internships, full-time, new recently), role kind filter chips (All, Internships, Full-time), sort options (Newest, Deadline, Pay), and all open jobs grouped by role family with glance badges.
 - **At-a-glance parsing**: built 2026-09-24 (`packages/shared/src/glance.ts`, 55 tests). Pure pattern extraction for: work model (remote/hybrid days/on-site), visa sponsorship, travel, security clearance, internship housing, and application extras (cover letter, transcript, references, coding test, case study). Surfaced on card badge row (work model, no-visa alert), card Details dropdown ("At a glance" badges), and job detail page 4-column fact grid.
 - **Job detail page**: long location lists (>6) collapse behind a native `Show all N locations` disclosure box with scrollable badges so huge multi-city roles don't push down the description.
@@ -35,7 +37,7 @@ Code: this repo (public, github.com/andydo4/job-radar). Live site: Vercel projec
 - **Company dropdown**: queries all active companies Primer watches (~100), grouped into "Companies with matching roles" (with counts) and "Other watched companies (0 roles)" so all tracked companies are visible and selectable.
 
 ## To do
-- **DB action**: run `supabase/migrations/0009_bigtech.sql` BEFORE pushing the big-tech companies.
+- Watch the first poller runs for the big-tech readers (Google / Microsoft may treat a server differently from a browser); a failing company shows in the run summary.
 - Map ideas parked for later: city-level hotspot dots (Boston, SF...), a state filter inside the Filters panel.
 - See docs/roadmap.md. Company pages, at-a-glance parsing and the US map are **done**.
 - Check possible wrong-company matches before adding: orbital, candid, genesis, nabla, caribou, scribe, resilience, seer, latch, watershed, cello, polaris.
