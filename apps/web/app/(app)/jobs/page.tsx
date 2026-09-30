@@ -523,6 +523,7 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
     getCompanyPrefs(supabase),
   ]);
   const viewerMs = Math.round(performance.now() - tViewer0);
+  const viewer = { profile, actions, newSince, companyPrefs };
 
   const companyCountsPerf: { durationMs?: number } = {};
   const tJobs0 = performance.now();
