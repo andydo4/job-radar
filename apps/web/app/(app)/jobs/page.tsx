@@ -516,12 +516,14 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   const userMs = Math.round(performance.now() - tUser0);
 
   const tViewer0 = performance.now();
-  const [profile, actions, newSince, companyPrefs] = await Promise.all([
+  const [profile, actions, companyPrefs] = await Promise.all([
     getProfile(supabase, user.id),
     getJobActions(supabase),
-    noteVisit(supabase),
     getCompanyPrefs(supabase),
   ]);
+  const newSince = profile.prev_visit_at ?? new Date(Date.now() - 48 * 3_600_000).toISOString();
+  // Fire noteVisit in background so it does not block the page render
+  void noteVisit(supabase);
   const viewerMs = Math.round(performance.now() - tViewer0);
   const viewer = { profile, actions, newSince, companyPrefs };
 

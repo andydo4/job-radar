@@ -287,29 +287,33 @@ async function loadRows(
     return rows;
   }
   // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
-  // Supabase returns at most 1,000 rows per request, so read in pages (the first one also counts them).
+  // Read in 1,000-row pages without requesting count: "exact" (which triggers a slow table-wide scan in Postgres).
   const PAGE = 1000;
-  const page = (from: number, count: boolean) => {
+  const page = (from: number) => {
     requestCount++;
-    let q = applyFilters(supabase.from("jobs").select(columns, count ? { count: "exact" } : undefined), opts, viewer)
+    let q = applyFilters(supabase.from("jobs").select(columns), opts, viewer)
       .order("is_backlog", { ascending: true })
       .order("posted_at", { ascending: false, nullsFirst: false })
       .order("first_seen_at", { ascending: false })
       .order("id", { ascending: false })
-      .range(from, Math.min(from + PAGE, limit) - 1);
+      .range(from, from + PAGE - 1);
     if (opts.company) q = q.eq("company_id", opts.company);
     return q;
   };
-  const first = await page(0, true);
+  const first = await page(0);
   if (first.error) throw new Error(`Couldn't load jobs: ${first.error.message}`);
   const rows = [...((first.data ?? []) as unknown as JobRow[])];
-  const total = Math.min(first.count ?? rows.length, limit);
-  if (total > rows.length && rows.length > 0) {
-    const step = rows.length; // what the server actually allows per request
-    const rest = await Promise.all(Array.from({ length: Math.ceil((total - step) / step) }, (_, i) => page(step * (i + 1), false)));
+  
+  if (rows.length === PAGE && limit > PAGE) {
+    const numPages = Math.ceil((limit - PAGE) / PAGE);
+    const rest = await Promise.all(
+      Array.from({ length: numPages }, (_, i) => page(PAGE * (i + 1)))
+    );
     for (const r of rest) {
       if (r.error) throw new Error(`Couldn't load jobs: ${r.error.message}`);
-      rows.push(...((r.data ?? []) as unknown as JobRow[]));
+      const more = (r.data ?? []) as unknown as JobRow[];
+      rows.push(...more);
+      if (more.length < PAGE) break;
     }
   }
   if (perf) {

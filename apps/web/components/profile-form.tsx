@@ -2,7 +2,7 @@
 
 import { useActionState, useCallback, useEffect, useRef, useState } from "react";
 import { buttonClass } from "@/components/ui";
-import { AFTER_GRAD_OPTIONS, DEGREE_OPTIONS, TIER_OPTIONS, type Profile, type ProfileFormState } from "@/lib/profile";
+import { AFTER_GRAD_OPTIONS, DEGREE_OPTIONS, TIER_OPTIONS, type Profile, type ProfileFormState, type ProfileInput } from "@/lib/profile";
 
 type Action = (prev: ProfileFormState, formData: FormData) => Promise<ProfileFormState>;
 
@@ -64,7 +64,7 @@ export function ProfileForm({
   const [state, formAction, pending] = useActionState(action, {});
   const e = state.errors ?? {};
   // After a failed save, show what was submitted (React resets the form after an action).
-  const profile: Omit<Profile, "onboarded_at"> = state.draft ?? saved;
+  const profile: ProfileInput = state.draft ?? saved;
   const gradMonth = profile.grad_month ? profile.grad_month.slice(0, 7) : "";
 
   // Settings: notice unsaved changes, show a save bar, and ask before leaving the page.

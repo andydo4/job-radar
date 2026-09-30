@@ -42,6 +42,7 @@ export interface Profile {
   /** After graduating: "work" (done with school), "maybe" (maybe grad school), "grad" (going to grad school). */
   after_grad: AfterGrad | null;
   onboarded_at: string | null;
+  prev_visit_at: string | null;
 }
 
 export const AFTER_GRAD_OPTIONS = [
@@ -52,7 +53,7 @@ export const AFTER_GRAD_OPTIONS = [
 export type AfterGrad = (typeof AFTER_GRAD_OPTIONS)[number][0];
 
 export const PROFILE_COLUMNS =
-  "degree, field, grad_month, years_experience, families, include_internships, metro_tiers, hide_contract, after_grad, onboarded_at";
+  "degree, field, grad_month, years_experience, families, include_internships, metro_tiers, hide_contract, after_grad, onboarded_at, prev_visit_at";
 
 export const DEFAULT_PROFILE: Profile = {
   degree: null,
@@ -65,6 +66,7 @@ export const DEFAULT_PROFILE: Profile = {
   hide_contract: false,
   after_grad: null,
   onboarded_at: null,
+  prev_visit_at: null,
 };
 
 const RANK: Record<string, number> = { none: 0, bs: 1, ms: 2, phd: 3 };
@@ -83,7 +85,7 @@ export interface ProfileFormState {
   draft?: ProfileInput;
 }
 
-export type ProfileInput = Omit<Profile, "onboarded_at">;
+export type ProfileInput = Omit<Profile, "onboarded_at" | "prev_visit_at">;
 
 export function parseProfileForm(
   fd: FormData,
