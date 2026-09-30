@@ -305,15 +305,14 @@ async function loadRows(
   const rows = [...((first.data ?? []) as unknown as JobRow[])];
   
   if (rows.length === PAGE && limit > PAGE) {
-    const numPages = Math.ceil((limit - PAGE) / PAGE);
-    const rest = await Promise.all(
-      Array.from({ length: numPages }, (_, i) => page(PAGE * (i + 1)))
-    );
-    for (const r of rest) {
-      if (r.error) throw new Error(`Couldn't load jobs: ${r.error.message}`);
-      const more = (r.data ?? []) as unknown as JobRow[];
+    let from = PAGE;
+    while (rows.length < limit) {
+      const next = await page(from);
+      if (next.error) throw new Error(`Couldn't load jobs: ${next.error.message}`);
+      const more = (next.data ?? []) as unknown as JobRow[];
       rows.push(...more);
       if (more.length < PAGE) break;
+      from += PAGE;
     }
   }
   if (perf) {
@@ -337,8 +336,8 @@ export const PAGE_SIZE = 50;
 /** How many rows a list looks at (2000 rows covers first pages quickly). */
 const LIST_ROW_LIMIT = 2000;
 
-/** How many rows the map looks at to color all states. */
-const MAP_ROW_LIMIT = 8000;
+/** How many rows the map looks at to color all states (3000 rows covers all active US roles). */
+const MAP_ROW_LIMIT = 3000;
 
 /**
  * The job list. Every matching role is grouped, filtered and sorted from light rows; only the
