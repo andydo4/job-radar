@@ -249,6 +249,48 @@ export interface PerfStats {
   groupCount: number;
 }
 
+interface CacheEntry<T> {
+  expiresAt: number;
+  data: T;
+}
+
+const ROWS_CACHE = new Map<string, CacheEntry<Row[]>>();
+const FULL_JOB_CACHE = new Map<number, CacheEntry<Row>>();
+const CACHE_TTL_MS = 60_000; // 60 seconds
+
+export function clearJobsCache() {
+  ROWS_CACHE.clear();
+  FULL_JOB_CACHE.clear();
+}
+
+function getCacheKey(opts: JobFilters, viewer: Viewer, limit: number): string {
+  const p = viewer.profile;
+  const hidden = idsWith(viewer.companyPrefs, "hide").sort().join(",");
+  const starred = idsWith(viewer.companyPrefs, "star").sort().join(",");
+  return JSON.stringify({
+    v: opts.view,
+    c: opts.company,
+    f: opts.family?.slice().sort(),
+    k: opts.kind,
+    p: opts.pay,
+    nc: opts.noContract,
+    si: opts.since,
+    fit: opts.fit,
+    e: opts.exp,
+    d: opts.degree,
+    lim: limit,
+    fam: p.families.slice().sort(),
+    tiers: p.metro_tiers.slice().sort(),
+    deg: p.degree,
+    exp: p.years_experience,
+    int: p.include_internships,
+    hc: p.hide_contract,
+    hid: hidden,
+    star: opts.starred ? starred : undefined,
+    act: isMarkView(opts.view) ? [...viewer.actions.entries()].filter(([, st]) => st === opts.view).map(([id]) => id).sort().join(",") : undefined,
+  });
+}
+
 /** The rows behind a list: your marked jobs, or everything open that matches the filters. */
 async function loadRows(
   supabase: SupabaseClient,
@@ -258,6 +300,18 @@ async function loadRows(
   limit: number,
   perf?: Partial<PerfStats>,
 ): Promise<Row[]> {
+  const cacheKey = getCacheKey(opts, viewer, limit);
+  const now = Date.now();
+  const cached = ROWS_CACHE.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    if (perf) {
+      perf.loadRowsMs = 0;
+      perf.rowCount = cached.data.length;
+      perf.requestCount = 0;
+    }
+    return cached.data;
+  }
+
   const t0 = performance.now();
   const companyMap = await getActiveCompaniesMap(supabase);
   let requestCount = 0;
@@ -284,6 +338,7 @@ async function loadRows(
       perf.rowCount = rows.length;
       perf.requestCount = requestCount;
     }
+    ROWS_CACHE.set(cacheKey, { expiresAt: now + CACHE_TTL_MS, data: rows });
     return rows;
   }
   // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
@@ -320,7 +375,7 @@ async function loadRows(
     perf.rowCount = rows.length;
     perf.requestCount = requestCount;
   }
-  return rows.map((r) => {
+  const result = rows.map((r) => {
     const co = companyMap.get(r.company_id);
     return {
       ...r,
@@ -328,6 +383,8 @@ async function loadRows(
       closed_at: null,
     };
   });
+  ROWS_CACHE.set(cacheKey, { expiresAt: now + CACHE_TTL_MS, data: result });
+  return result;
 }
 
 /** Cards per "Load more". */
@@ -370,11 +427,27 @@ async function hydrate(supabase: SupabaseClient, groups: JobGroup[], perf?: Part
   const t0 = performance.now();
   const ids = groups.flatMap((g) => g.listings.map((l) => l.id));
   const full = new Map<number, Row>();
-  for (let i = 0; i < ids.length; i += 500) {
-    const { data, error } = await supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", ids.slice(i, i + 500));
-    if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
-    for (const r of (data ?? []) as unknown as Row[]) full.set(r.id, r);
+  const now = Date.now();
+  const missing: number[] = [];
+
+  for (const id of ids) {
+    const cached = FULL_JOB_CACHE.get(id);
+    if (cached && cached.expiresAt > now) {
+      full.set(id, cached.data);
+    } else {
+      missing.push(id);
+    }
   }
+
+  for (let i = 0; i < missing.length; i += 500) {
+    const { data, error } = await supabase.from("jobs").select(`${COLUMNS}, closed_at`).in("id", missing.slice(i, i + 500));
+    if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+    for (const r of (data ?? []) as unknown as Row[]) {
+      full.set(r.id, r);
+      FULL_JOB_CACHE.set(r.id, { expiresAt: now + CACHE_TTL_MS, data: r });
+    }
+  }
+
   if (perf) {
     perf.hydrateMs = Math.round(performance.now() - t0);
     perf.hydratedCount = groups.length;

@@ -1,6 +1,6 @@
 "use server";
 
-import { getDescription } from "@/lib/jobs";
+import { clearJobsCache, getDescription } from "@/lib/jobs";
 import type { JobStatus } from "@/lib/me";
 import { requireUser } from "@/lib/supabase/server";
 
@@ -27,5 +27,6 @@ export async function setJobStatus(ids: number[], status: JobStatus | null): Pro
     const { error } = await supabase.from("job_actions").insert({ user_id: user.id, job_id: clean[0], status });
     if (error) return { ok: false, message: error.message };
   }
+  clearJobsCache();
   return { ok: true };
 }
