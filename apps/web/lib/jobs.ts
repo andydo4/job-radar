@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CompanyPref, JobStatus } from "./me";
 import { allowedDegrees, maxExperience, qualify, type Profile } from "./profile";
@@ -221,6 +222,24 @@ function annualMax(j: JobRow): number {
 
 type Row = JobRow & { closed_at: string | null };
 
+export interface ActiveCompany {
+  id: string;
+  name: string;
+  segment: string;
+}
+
+/** All active companies Primer watches. Cached per-request across all components. */
+export const getActiveCompanies = cache(async (supabase: SupabaseClient): Promise<ActiveCompany[]> => {
+  const { data } = await supabase.from("companies").select("id, name, segment").eq("active", true).order("name");
+  return (data ?? []) as ActiveCompany[];
+});
+
+/** Active companies indexed by id for instant in-memory join. Cached per-request. */
+export const getActiveCompaniesMap = cache(async (supabase: SupabaseClient): Promise<Map<string, ActiveCompany>> => {
+  const list = await getActiveCompanies(supabase);
+  return new Map(list.map((c) => [c.id, c]));
+});
+
 export interface PerfStats {
   loadRowsMs: number;
   rowCount: number;
@@ -240,6 +259,7 @@ async function loadRows(
   perf?: Partial<PerfStats>,
 ): Promise<Row[]> {
   const t0 = performance.now();
+  const companyMap = await getActiveCompaniesMap(supabase);
   let requestCount = 0;
   if (isMarkView(opts.view)) {
     // Your saved / applied / hidden jobs, including ones that have since closed.
@@ -251,12 +271,20 @@ async function loadRows(
     if (opts.company) q = q.eq("company_id", opts.company);
     const { data, error } = await q;
     if (error) throw new Error(`Couldn't load jobs: ${error.message}`);
+    const rows = ((data ?? []) as unknown as JobRow[]).map((r) => {
+      const co = companyMap.get(r.company_id);
+      return {
+        ...r,
+        company: co ? { name: co.name, segment: co.segment } : null,
+        closed_at: (r as unknown as { closed_at: string | null }).closed_at ?? null,
+      };
+    });
     if (perf) {
       perf.loadRowsMs = Math.round(performance.now() - t0);
-      perf.rowCount = (data ?? []).length;
+      perf.rowCount = rows.length;
       perf.requestCount = requestCount;
     }
-    return (data ?? []) as unknown as Row[];
+    return rows;
   }
   // Fetch genuinely new postings first, then the most recently posted older ones (the page sorts precisely).
   // Supabase returns at most 1,000 rows per request, so read in pages (the first one also counts them).
@@ -289,14 +317,24 @@ async function loadRows(
     perf.rowCount = rows.length;
     perf.requestCount = requestCount;
   }
-  return rows.map((r) => ({ ...r, closed_at: null }));
+  return rows.map((r) => {
+    const co = companyMap.get(r.company_id);
+    return {
+      ...r,
+      company: co ? { name: co.name, segment: co.segment } : null,
+      closed_at: null,
+    };
+  });
 }
 
 /** Cards per "Load more". */
 export const PAGE_SIZE = 50;
 
-/** How many rows a list or the map looks at (light columns, so this stays quick). */
-const ROW_LIMIT = 8000;
+/** How many rows a list looks at (2000 rows covers first pages quickly). */
+const LIST_ROW_LIMIT = 2000;
+
+/** How many rows the map looks at to color all states. */
+const MAP_ROW_LIMIT = 8000;
 
 /**
  * The job list. Every matching role is grouped, filtered and sorted from light rows; only the
@@ -310,17 +348,19 @@ export async function getJobs(
   show = Infinity,
 ): Promise<{ groups: JobGroup[]; all: JobGroup[]; hiddenCount: number; truncated: boolean; perf: PerfStats }> {
   const perf: PerfStats = { loadRowsMs: 0, rowCount: 0, requestCount: 0, hydrateMs: 0, hydratedCount: 0, groupCount: 0 };
-  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, ROW_LIMIT, perf);
+  const limit = Math.min(MAP_ROW_LIMIT, Math.max(LIST_ROW_LIMIT, (show === Infinity ? 50 : show) * 10));
+  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, limit, perf);
   let all = groupRows(light, opts, viewer);
   if (opts.state) all = all.filter((g) => inPlace(g, opts.state!, opts.city));
   perf.groupCount = all.length;
   const groups = await hydrate(supabase, all.slice(0, show), perf);
-  return { groups, all, hiddenCount: countHidden(viewer), truncated: light.length >= ROW_LIMIT, perf };
+  return { groups, all, hiddenCount: countHidden(viewer), truncated: light.length >= limit, perf };
 }
 
-/** Just what grouping, For you, Fit, sorting, counts and the map need (no requirements etc.). */
+/** Just what grouping, For you, Fit, sorting, counts and the map need (no requirements etc.).
+ * Note: company relation join is omitted for fast queries; company is attached in-memory. */
 const LIGHT_COLUMNS =
-  "id, company_id, title, role_family, dedupe_key, locations, remote, seniority, degree_min, experience_min_years, employment_type, metro_tier, is_backlog, first_seen_at, posted_at, posted_text, salary_max, salary_min, salary_period, term, start_date, end_date, dates_label, deadline, intern_levels, grad_from, grad_to, states, places, company:companies(name, segment)";
+  "id, company_id, title, role_family, dedupe_key, locations, remote, seniority, degree_min, experience_min_years, employment_type, metro_tier, is_backlog, first_seen_at, posted_at, posted_text, salary_max, salary_min, salary_period, term, start_date, end_date, dates_label, deadline, intern_levels, grad_from, grad_to, states, places";
 
 /** Swap in the full rows for the roles that will be shown as cards. */
 async function hydrate(supabase: SupabaseClient, groups: JobGroup[], perf?: Partial<PerfStats>): Promise<JobGroup[]> {
@@ -350,12 +390,12 @@ export async function getMapJobs(
   show = Infinity,
 ): Promise<{ counts: StateCount[]; all: JobGroup[]; picked: JobGroup[]; selected: JobGroup[]; hiddenCount: number; truncated: boolean; perf: PerfStats }> {
   const perf: PerfStats = { loadRowsMs: 0, rowCount: 0, requestCount: 0, hydrateMs: 0, hydratedCount: 0, groupCount: 0 };
-  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, ROW_LIMIT, perf);
+  const light = await loadRows(supabase, opts, viewer, LIGHT_COLUMNS, MAP_ROW_LIMIT, perf);
   const all = groupRows(light, opts, viewer);
   perf.groupCount = all.length;
   const picked = opts.state ? all.filter((g) => inPlace(g, opts.state!, opts.city)) : [];
   const selected = await hydrate(supabase, picked.slice(0, show), perf);
-  return { counts: stateCounts(all), all, picked, selected, hiddenCount: countHidden(viewer), truncated: light.length >= ROW_LIMIT, perf };
+  return { counts: stateCounts(all), all, picked, selected, hiddenCount: countHidden(viewer), truncated: light.length >= MAP_ROW_LIMIT, perf };
 }
 
 /** Rows -> roles (one per dedupe key), minus hidden / ineligible / off-fit ones, sorted. */
@@ -467,7 +507,7 @@ function countHidden(viewer: Viewer): number {
   return n;
 }
 
-export async function getLastRun(supabase: SupabaseClient): Promise<{ finished_at: string; companies_failed: number } | null> {
+export const getLastRun = cache(async (supabase: SupabaseClient): Promise<{ finished_at: string; companies_failed: number } | null> => {
   const { data } = await supabase
     .from("poll_runs")
     .select("finished_at, companies_failed")
@@ -475,12 +515,12 @@ export async function getLastRun(supabase: SupabaseClient): Promise<{ finished_a
     .limit(1)
     .maybeSingle();
   return (data as { finished_at: string; companies_failed: number } | null) ?? null;
-}
+});
 
-export async function getCompanyCount(supabase: SupabaseClient): Promise<number> {
-  const { count } = await supabase.from("companies").select("id", { count: "exact", head: true }).eq("active", true);
-  return count ?? 0;
-}
+export const getCompanyCount = cache(async (supabase: SupabaseClient): Promise<number> => {
+  const cos = await getActiveCompanies(supabase);
+  return cos.length;
+});
 
 /** "just now", "6 min ago", "3 hr ago", "2 days ago" */
 export function timeAgo(iso: string, now = Date.now()): string {
@@ -597,30 +637,56 @@ export async function getCompanyCounts(
   supabase: SupabaseClient,
   opts: JobFilters,
   viewer: Viewer,
+  allGroups?: JobGroup[],
   perf?: { durationMs?: number },
 ): Promise<{ id: string; name: string; count: number }[]> {
   const t0 = performance.now();
-  const [{ data: cos }, { data: matching }] = await Promise.all([
-    supabase.from("companies").select("id, name").eq("active", true).order("name"),
-    isMarkView(opts.view)
-      ? (() => {
-          const ids = [...viewer.actions].filter(([, st]) => st === opts.view).map(([id]) => id);
-          if (!ids.length) return Promise.resolve({ data: [] });
-          let q = supabase.from("jobs").select("company_id, dedupe_key").in("id", ids.slice(0, 1000));
-          if (opts.family?.length) q = q.in("role_family", opts.family);
-          return q;
-        })()
-      : applyFilters(supabase.from("jobs").select("company_id, dedupe_key"), { ...opts, company: undefined }, viewer).limit(10000),
-  ]);
+  const cos = await getActiveCompanies(supabase);
+
+  // Fast path: if all matching groups are already in memory and no company filter is applied,
+  // compute counts in 0ms without hitting Supabase at all.
+  if (allGroups && !opts.company) {
+    const rolesPerCo = new Map<string, number>();
+    for (const g of allGroups) {
+      rolesPerCo.set(g.lead.company_id, (rolesPerCo.get(g.lead.company_id) ?? 0) + 1);
+    }
+    const list = cos.map((c) => ({
+      id: c.id,
+      name: c.name,
+      count: rolesPerCo.get(c.id) ?? 0,
+    }));
+    if (perf) perf.durationMs = Math.round(performance.now() - t0);
+    return list.sort((a, b) => {
+      const hasA = a.count > 0 ? 1 : 0;
+      const hasB = b.count > 0 ? 1 : 0;
+      if (hasA !== hasB) return hasB - hasA;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  const isMark = isMarkView(opts.view);
+  let matching: { company_id: string; dedupe_key: string }[] = [];
+  if (isMark) {
+    const ids = [...viewer.actions].filter(([, st]) => st === opts.view).map(([id]) => id);
+    if (ids.length) {
+      let q = supabase.from("jobs").select("company_id, dedupe_key").in("id", ids.slice(0, 1000));
+      if (opts.family?.length) q = q.in("role_family", opts.family);
+      const res = await q;
+      matching = (res.data ?? []) as { company_id: string; dedupe_key: string }[];
+    }
+  } else {
+    const res = await applyFilters(supabase.from("jobs").select("company_id, dedupe_key"), { ...opts, company: undefined }, viewer).limit(5000);
+    matching = (res.data ?? []) as { company_id: string; dedupe_key: string }[];
+  }
 
   const rolesPerCo = new Map<string, Set<string>>();
-  for (const r of (matching ?? []) as { company_id: string; dedupe_key: string }[]) {
+  for (const r of matching) {
     const s = rolesPerCo.get(r.company_id) ?? new Set<string>();
     s.add(r.dedupe_key);
     rolesPerCo.set(r.company_id, s);
   }
 
-  const list = ((cos ?? []) as { id: string; name: string }[]).map((c) => ({
+  const list = cos.map((c) => ({
     id: c.id,
     name: c.name,
     count: rolesPerCo.get(c.id)?.size ?? 0,

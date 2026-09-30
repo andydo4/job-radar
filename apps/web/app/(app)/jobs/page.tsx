@@ -525,14 +525,19 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   const viewerMs = Math.round(performance.now() - tViewer0);
   const viewer = { profile, actions, newSince, companyPrefs };
 
-  const companyCountsPerf: { durationMs?: number } = {};
   const tJobs0 = performance.now();
-  const [jobs, lastRun, companyCount, companies] = await Promise.all([
+  const [jobs, lastRun, companyCount] = await Promise.all([
     f.map ? getMapJobs(supabase, f, viewer, f.show ?? PAGE_SIZE) : getJobs(supabase, f, viewer, f.show ?? PAGE_SIZE),
     getLastRun(supabase),
     getCompanyCount(supabase),
-    getCompanyCounts(supabase, f, viewer, companyCountsPerf),
   ]);
+  const mapData = "counts" in jobs ? jobs : null;
+  // The cards shown: the list, or on the map the roles in the picked state.
+  const listData = mapData ? null : (jobs as Awaited<ReturnType<typeof getJobs>>);
+  const allGroups = mapData ? mapData.all : listData!.all;
+
+  const companyCountsPerf: { durationMs?: number } = {};
+  const companies = await getCompanyCounts(supabase, f, viewer, allGroups, companyCountsPerf);
   const jobsMs = Math.round(performance.now() - tJobs0);
   const totalMs = Math.round(performance.now() - tPageStart);
 
@@ -544,12 +549,9 @@ export default async function JobsPage(props: PageProps<"/jobs">) {
   console.log(`│  ├─ loadRows from DB:     ${jobs.perf.loadRowsMs}ms (${jobs.perf.rowCount} rows, ${jobs.perf.requestCount} HTTP reqs)`);
   console.log(`│  ├─ dedupe & group in JS: ${jobs.perf.groupCount} unique roles`);
   console.log(`│  ├─ hydrate (full cards): ${jobs.perf.hydrateMs}ms (${jobs.perf.hydratedCount} cards)`);
-  console.log(`│  └─ getCompanyCounts:     ${companyCountsPerf.durationMs ?? 0}ms (extra jobs scan)`);
+  console.log(`│  └─ getCompanyCounts:     ${companyCountsPerf.durationMs ?? 0}ms (in-memory fast path)`);
   console.log(`==================================================================\n`);
 
-  const mapData = "counts" in jobs ? jobs : null;
-  // The cards shown: the list, or on the map the roles in the picked state.
-  const listData = mapData ? null : (jobs as Awaited<ReturnType<typeof getJobs>>);
   const groups = mapData ? mapData.selected : listData!.groups;
   // Every matching role (the cards are the first `show` of these).
   const matching = mapData ? mapData.picked : listData!.all;

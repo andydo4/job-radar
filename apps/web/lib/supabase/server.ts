@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -25,12 +26,12 @@ export async function createClient() {
   });
 }
 
-/** The signed-in user, or a redirect to /login. Use at the top of protected pages and actions. */
-export async function requireUser() {
+/** The signed-in user, or a redirect to /login. Cached per-request across layout and page. */
+export const requireUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   return { supabase, user };
-}
+});
